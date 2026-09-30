@@ -1,0 +1,22 @@
+# MATLAB autosave, caches, and generated binaries
+*.asv
+*.autosave
+*.m~
+*.mex*
+*.slxc
+slprj/
+codegen/
+
+# Editor and OS files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Generated experiment outputs; keep directory placeholders
+results/data/*
+!results/data/.gitkeep
+results/figures/*
+!results/figures/.gitkeep
