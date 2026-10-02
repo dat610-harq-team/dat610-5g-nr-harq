@@ -20,3 +20,6 @@ results/data/*
 !results/data/.gitkeep
 results/figures/*
 !results/figures/.gitkeep
+
+# Downloaded MathWorks examples (retrieve with setupHarqExperiment)
+references/mathworks/
