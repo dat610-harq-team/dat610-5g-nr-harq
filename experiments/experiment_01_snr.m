@@ -4,21 +4,20 @@
 % Purpose:
 % Study how Signal-to-Noise Ratio (SNR) changes HARQ behavior.
 %
-% This is our first larger sweep after the 20-block smoke test.
-% The range and run length are still provisional until the group justifies
-% them for the final report.
+% This version is a fast development sweep for MATLAB R2022a.
+% The longer report-quality sweep can be restored later once runtime is known.
 
 repoRoot = fileparts(fileparts(mfilename("fullpath")));
 addpath(genpath(fullfile(repoRoot,"src")));
 
 cfg = defaultConfig();
 
-% Use more transport blocks than the smoke test so trends are less dependent
-% on a very small sample. Increase later if runtime and convergence allow.
-cfg.NumTransportBlocks = 500;
+% Fast development run.
+cfg.NumTransportBlocks = 50;
 
-% Provisional sweep chosen to expose poor, intermediate, and good conditions.
-snrValues = -4:2:12;
+% Avoid the very low-SNR points for now because they trigger many HARQ
+% attempts and make the LDPC encoder/decoder run much longer.
+snrValues = 0:2:12;
 
 results = cell(1,numel(snrValues));
 
@@ -27,13 +26,17 @@ finalFailureRate = zeros(size(snrValues));
 averageTransmissionAttempts = zeros(size(snrValues));
 averageRetransmissionsPerBlock = zeros(size(snrValues));
 
-fprintf("\n5G NR HARQ SNR sweep\n");
+fprintf("\n5G NR HARQ SNR development sweep\n");
 fprintf("Transport blocks per SNR: %d\n",cfg.NumTransportBlocks);
 fprintf("------------------------------------------------------------\n");
 
 for idx = 1:numel(snrValues)
 
     scenario.SNRdB = snrValues(idx);
+
+    fprintf("Running SNR = %g dB ...\n",scenario.SNRdB);
+    drawnow;
+
     results{idx} = runSimulation(cfg,scenario);
 
     raw = results{idx}.raw;
@@ -52,11 +55,13 @@ for idx = 1:numel(snrValues)
     averageRetransmissionsPerBlock(idx) = ...
         raw.totalRetransmissions / raw.totalTransportBlocks;
 
-    fprintf("SNR = %4g dB | first BLER = %6.2f%% | final fail = %6.2f%% | avg attempts = %.2f | avg retx = %.2f\n", ...
-        scenario.SNRdB, ...
-        firstAttemptBLER(idx)*100, ...
-        finalFailureRate(idx)*100, ...
-        averageTransmissionAttempts(idx), ...
+    fprintf("  first-attempt BLER                : %6.2f%%\n", ...
+        firstAttemptBLER(idx)*100);
+    fprintf("  final HARQ failure rate           : %6.2f%%\n", ...
+        finalFailureRate(idx)*100);
+    fprintf("  average transmission attempts     : %.2f\n", ...
+        averageTransmissionAttempts(idx));
+    fprintf("  average retransmissions per block : %.2f\n\n", ...
         averageRetransmissionsPerBlock(idx));
 end
 
@@ -107,10 +112,10 @@ save(fullfile(dataDirectory,"experiment_01_snr_results.mat"), ...
     "averageRetransmissionsPerBlock", ...
     "cfg");
 
-fprintf("\nSaved sweep data to results/data/experiment_01_snr_results.mat\n");
+fprintf("Saved sweep data to results/data/experiment_01_snr_results.mat\n");
 
-% Next:
-% - inspect whether 500 blocks are enough for stable curves
-% - justify the final SNR range from literature/reference behavior
-% - agree with Person 2 on final metric definitions
-% - repeat with a larger run if the curves remain noisy
+% Later report-quality run:
+% - increase NumTransportBlocks substantially
+% - reintroduce lower SNR values if needed
+% - justify final SNR range
+% - confirm final metric definitions with Person 2
