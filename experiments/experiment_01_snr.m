@@ -12,7 +12,10 @@ cfg = defaultConfig();
 
 snrValues = [2 7 12];
 
-results = repmat(struct(),1,numel(snrValues));
+% Store each simulation result in a cell because runSimulation returns a
+% structure with fields. Preallocating an array of empty structures with
+% no fields causes a "dissimilar structures" assignment error in MATLAB.
+results = cell(1,numel(snrValues));
 
 fprintf("\n5G NR HARQ baseline smoke test\n");
 fprintf("---------------------------------------------\n");
@@ -20,9 +23,9 @@ fprintf("---------------------------------------------\n");
 for idx = 1:numel(snrValues)
 
     scenario.SNRdB = snrValues(idx);
-    results(idx) = runSimulation(cfg,scenario);
+    results{idx} = runSimulation(cfg,scenario);
 
-    raw = results(idx).raw;
+    raw = results{idx}.raw;
 
     fprintf("SNR = %g dB\n",scenario.SNRdB);
     fprintf("  transport blocks      : %d\n",raw.totalTransportBlocks);
