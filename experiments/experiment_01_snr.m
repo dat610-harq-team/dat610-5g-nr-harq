@@ -1,22 +1,34 @@
-%% Experiment 1 - SNR
+%% Experiment 1 - SNR Sweep
 % Owner: Person 1
 %
-% First working smoke test for the shared simulation.
-% The SNR values below are NOT the final scientifically justified sweep.
-% They simply check that the baseline responds sensibly to changing SNR.
+% Purpose:
+% Study how Signal-to-Noise Ratio (SNR) changes HARQ behavior.
+%
+% This is our first larger sweep after the 20-block smoke test.
+% The range and run length are still provisional until the group justifies
+% them for the final report.
 
 repoRoot = fileparts(fileparts(mfilename("fullpath")));
 addpath(genpath(fullfile(repoRoot,"src")));
 
 cfg = defaultConfig();
 
-snrValues = [2 7 12];
+% Use more transport blocks than the smoke test so trends are less dependent
+% on a very small sample. Increase later if runtime and convergence allow.
+cfg.NumTransportBlocks = 500;
 
-% Store each simulation result in a cell because runSimulation returns a
-% structure with fields.
+% Provisional sweep chosen to expose poor, intermediate, and good conditions.
+snrValues = -4:2:12;
+
 results = cell(1,numel(snrValues));
 
-fprintf("\n5G NR HARQ baseline smoke test\n");
+firstAttemptBLER = zeros(size(snrValues));
+finalFailureRate = zeros(size(snrValues));
+averageTransmissionAttempts = zeros(size(snrValues));
+averageRetransmissionsPerBlock = zeros(size(snrValues));
+
+fprintf("\n5G NR HARQ SNR sweep\n");
+fprintf("Transport blocks per SNR: %d\n",cfg.NumTransportBlocks);
 fprintf("------------------------------------------------------------\n");
 
 for idx = 1:numel(snrValues)
@@ -26,39 +38,79 @@ for idx = 1:numel(snrValues)
 
     raw = results{idx}.raw;
 
-    % Simple descriptive values for the smoke test.
-    % Person 2 will later help confirm the final metric definitions used
-    % in the report and in calculateMetrics.m.
     firstAttemptFailures = sum(raw.firstAttemptBlockError);
-    firstAttemptBLER = firstAttemptFailures / raw.totalTransportBlocks;
 
-    averageRetransmissionsPerBlock = ...
-        raw.totalRetransmissions / raw.totalTransportBlocks;
+    firstAttemptBLER(idx) = ...
+        firstAttemptFailures / raw.totalTransportBlocks;
 
-    averageTransmissionAttempts = ...
-        raw.totalTransmissionAttempts / raw.totalTransportBlocks;
-
-    finalFailureRate = ...
+    finalFailureRate(idx) = ...
         raw.finalFailedTransportBlocks / raw.totalTransportBlocks;
 
-    fprintf("SNR = %g dB\n",scenario.SNRdB);
-    fprintf("  transport blocks                  : %d\n",raw.totalTransportBlocks);
-    fprintf("  first-attempt failures            : %d\n",firstAttemptFailures);
-    fprintf("  first-attempt BLER                : %.3f (%.1f%%)\n", ...
-        firstAttemptBLER,firstAttemptBLER*100);
-    fprintf("  total transmission attempts       : %d\n",raw.totalTransmissionAttempts);
-    fprintf("  total retransmissions             : %d\n",raw.totalRetransmissions);
-    fprintf("  average retransmissions per block : %.2f\n", ...
-        averageRetransmissionsPerBlock);
-    fprintf("  average transmission attempts     : %.2f\n", ...
-        averageTransmissionAttempts);
-    fprintf("  final failed blocks               : %d\n",raw.finalFailedTransportBlocks);
-    fprintf("  final failure rate                : %.3f (%.1f%%)\n\n", ...
-        finalFailureRate,finalFailureRate*100);
+    averageTransmissionAttempts(idx) = ...
+        raw.totalTransmissionAttempts / raw.totalTransportBlocks;
+
+    averageRetransmissionsPerBlock(idx) = ...
+        raw.totalRetransmissions / raw.totalTransportBlocks;
+
+    fprintf("SNR = %4g dB | first BLER = %6.2f%% | final fail = %6.2f%% | avg attempts = %.2f | avg retx = %.2f\n", ...
+        scenario.SNRdB, ...
+        firstAttemptBLER(idx)*100, ...
+        finalFailureRate(idx)*100, ...
+        averageTransmissionAttempts(idx), ...
+        averageRetransmissionsPerBlock(idx));
 end
 
+%% Plot 1 - First-attempt BLER and final HARQ failure rate
+
+figure;
+plot(snrValues,firstAttemptBLER,"-o","LineWidth",1.5);
+hold on;
+plot(snrValues,finalFailureRate,"-s","LineWidth",1.5);
+hold off;
+grid on;
+xlabel("Signal-to-Noise Ratio (dB)");
+ylabel("Rate");
+title("Block Failure Behavior vs SNR");
+legend("First-attempt BLER","Final HARQ failure rate","Location","best");
+
+%% Plot 2 - Average transmission attempts
+
+figure;
+plot(snrValues,averageTransmissionAttempts,"-o","LineWidth",1.5);
+grid on;
+xlabel("Signal-to-Noise Ratio (dB)");
+ylabel("Average transmission attempts per transport block");
+title("Average HARQ Transmission Attempts vs SNR");
+
+%% Plot 3 - Average retransmissions
+
+figure;
+plot(snrValues,averageRetransmissionsPerBlock,"-o","LineWidth",1.5);
+grid on;
+xlabel("Signal-to-Noise Ratio (dB)");
+ylabel("Average retransmissions per transport block");
+title("Average HARQ Retransmissions vs SNR");
+
+%% Save raw sweep data for later inspection
+
+dataDirectory = fullfile(repoRoot,"results","data");
+if ~exist(dataDirectory,"dir")
+    mkdir(dataDirectory);
+end
+
+save(fullfile(dataDirectory,"experiment_01_snr_results.mat"), ...
+    "snrValues", ...
+    "results", ...
+    "firstAttemptBLER", ...
+    "finalFailureRate", ...
+    "averageTransmissionAttempts", ...
+    "averageRetransmissionsPerBlock", ...
+    "cfg");
+
+fprintf("\nSaved sweep data to results/data/experiment_01_snr_results.mat\n");
+
 % Next:
-% - inspect how much HARQ recovers between first-attempt and final failure
-% - agree with Person 2 on exact metric definitions
-% - justify the final SNR range
-% - only then add final plots and larger runs
+% - inspect whether 500 blocks are enough for stable curves
+% - justify the final SNR range from literature/reference behavior
+% - agree with Person 2 on final metric definitions
+% - repeat with a larger run if the curves remain noisy
