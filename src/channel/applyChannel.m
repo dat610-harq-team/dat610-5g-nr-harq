@@ -10,5 +10,17 @@ function receivedWaveform = applyChannel(channel, transmittedWaveform)
 %   - How are sample rate, delay, timing, and SNR handled?
 %   - What differs between AWGN and one validated TDL case?
 
-    receivedWaveform = []; % Placeholder only; no channel is applied.
+if strcmpi(channel.type, 'AWGN')
+    receivedWaveform = transmittedWaveform;
+
+elseif startsWith(channel.type, 'TDL', 'IgnoreCase', true)
+    chInfo = info(channel.object);
+    maxChDelay = ceil(max(chInfo.PathDelays*channel.object.SampleRate)) + chInfo.ChannelFilterDelay;
+
+    paddedWaveform = [transmittedWaveform; zeros(maxChDelay, size(transmittedWaveform,2))];
+    receivedWaveform = channel.object(paddedWaveform);
+else
+    error("Unknown channel type. Use 'AWGN' or a TDL profile");
+
+end
 end

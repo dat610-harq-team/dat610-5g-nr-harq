@@ -10,6 +10,24 @@ function channel = createChannel(cfg)
 %   - Which single TDL model is appropriate and why?
 %   - Which parameters need scientific justification?
 %   - How could Doppler/mobility enter later, if scope permits?
+if strcmpi(cfg.channelType, 'AWGN')
+    channel.type = cfg.channelType;
+    channel.object = [];
+        
+elseif startsWith(cfg.channelType, 'TDL', 'IgnoreCase', true)
+    tdl = nrTDLChannel;
+    tdl.NumTransmitAntennas = cfg.NTxAnts;
+    tdl.NumReceiveAntennas = cfg.NRxAnts;
 
-    channel = []; % Placeholder only.
+    tdl.DelayProfile = cfg.channelType;
+    tdl.DelaySpread = cfg.DelaySpread;
+    tdl.MaximumDopplerShift = cfg.MaximumDopplerShift;
+    tdl.SampleRate = cfg.SampleRate;
+    channel.type = cfg.channelType;
+    channel.object = tdl;
+
+else
+    error("Unknown channel type. Use 'AWGN' or a TDL profile");
+
+end
 end
