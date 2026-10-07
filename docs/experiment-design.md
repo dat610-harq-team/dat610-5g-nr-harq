@@ -1,5 +1,7 @@
 # Experiment design questions
 
+**Implementation update:** Person 2's initial AWGN HARQ experiment is now runnable on R2026a. See [the run guide](run-harq-experiment.md) for its retry-budget comparison, metric definitions, configuration, and limits. The questions below preserve the original wider integration plan.
+
 These are planned studies, not completed algorithms or final parameter selections. Each experiment file is currently a checklist. The group should validate one scenario and agree on raw counters and metrics before writing sweeps or interpreting output.
 
 ## Experiment 1 — SNR (Person 1)

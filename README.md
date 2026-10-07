@@ -8,8 +8,16 @@ We are investigating how 5G NR HARQ affects reliability and performance under ch
 | HARQ behavior and metrics | Person 2 | [`src/harq/`](src/harq/), [`calculateMetrics.m`](src/metrics/calculateMetrics.m) |
 | Channel models and comparison | Person 3 | [`src/channel/`](src/channel/), [`experiment_03_channel.m`](experiments/experiment_03_channel.m) |
 
-**Start here:** Read the [team plan](docs/team-plan.md) and [experiment questions](docs/experiment-design.md). Then run and trace the official MathWorks 5G NR HARQ/PDSCH reference example. Agree on interfaces and measurements before filling in the MATLAB files. The [initial plan](docs/initial-plan.md) lists the shared research scope.
+**Run Person 2's experiment:** With MATLAB R2026a and 5G Toolbox, set the Current Folder to this repository and run:
 
-The folders separate orchestration, HARQ, channels, metrics, plotting, experiments, literature, report material, and generated results. `results/data/` and `results/figures/` are empty placeholders.
+```matlab
+addpath('experiments');
+output = experiment_02_harq;          % Quick AWGN pilot
+% output = experiment_02_harq("study"); % Larger multi-seed sweep
+```
 
-**Current status:** This repository contains structure, ownership, function contracts, and investigation breadcrumbs. The MATLAB functions return empty placeholders; experiment files are checklists. There is no NR simulation, HARQ state machine, channel implementation, metric calculation, sweep, figure, or scientific result yet. Configuration values and metric definitions still need investigation and group agreement.
+See the [HARQ run guide](docs/run-harq-experiment.md) for settings, outputs, metric definitions, assumptions, and tests. It adapts the official MathWorks transport-channel example and reuses its HARQ helper. The [team plan](docs/team-plan.md), [original experiment questions](docs/experiment-design.md), and [initial plan](docs/initial-plan.md) describe the wider group project.
+
+The folders separate orchestration, HARQ, channels, metrics, plotting, experiments, literature, report material, and generated results. Runs create separate data and figure directories under `results/`, which Git ignores.
+
+**Current status:** Person 2's symbol-domain NR DL-SCH/PDSCH AWGN experiment, metric collection, retry-budget sweep, plots, and validation tests are runnable on R2026a. Quick runs are validation pilots, not final report results. The team's waveform simulation (`runSimulation.m`), TDL/channel integration, and experiments 1/3 remain placeholders. HARQ settings and the final scientific experiment should still be reviewed by the group.
