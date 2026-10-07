@@ -1,0 +1,4 @@
+Date,Member,Hours,WorkSummary
+2026-09-29,Person 1,2.0,"Project planning and initial HARQ/5G NR reference investigation"
+2026-10-04,Person 1,4.0,"Baseline simulation work, code walkthrough, and SNR experiment preparation"
+2026-10-06,Person 1,4.0,"Ran and analyzed 300-block SNR experiment, refined metrics/output, and prepared integration"

@@ -1,15 +1,33 @@
 function cfg = defaultConfig()
-%DEFAULTCONFIG Shared starting configuration for future simulations.
-% Owner: Person 1; agree on scientific settings with the whole group.
-% Output: cfg - a configuration struct for runSimulation.
+%DEFAULTCONFIG Baseline settings for the first working HARQ simulation.
+% Owner: Person 1; scientific values must still be reviewed by the group.
 %
-% Values are provisional until justified through literature and the
-% MATLAB reference example. The single flag below is an interface hint,
-% not evidence that the reference supports a fair on/off comparison.
+% These baseline values come from the R2022a MathWorks example
+% "Model 5G NR Transport Channels with HARQ". They are a starting point,
+% not final experimental choices.
 
-    cfg.EnableHARQ = true;
+    cfg.NumTransportBlocks = 20;   % Small value for fast smoke tests
+    cfg.RandomSeed = "default";
 
-    % TODO: Decide simulation duration and SNR range.
-    % TODO: Decide channel and NR/PDSCH configuration.
-    % TODO: Record units and reasons for every chosen value.
+    % DL-SCH / HARQ baseline
+    cfg.TargetCodeRate = 490/1024;
+    cfg.RVSequence = [0 2 3 1];
+
+    % Carrier baseline
+    cfg.SubcarrierSpacing = 15;    % kHz
+    cfg.NSizeGrid = 52;            % 52 RBs ~= 10 MHz at 15 kHz SCS
+    cfg.CyclicPrefix = "Normal";
+
+    % PDSCH baseline
+    cfg.Modulation = "16QAM";
+    cfg.NumLayers = 1;
+
+    % Decoder baseline
+    cfg.LDPCDecodingAlgorithm = "Normalized min-sum";
+    cfg.MaximumLDPCIterationCount = 6;
+
+    % TODO with the group:
+    % - justify final run length and SNR range
+    % - decide whether later experiments use multiple parallel HARQ processes
+    % - record reasons/sources for final reported parameter values
 end
