@@ -23,11 +23,17 @@ retransmissionProbability = zeros(size(snrValues));
 meanDeliveryLatencySlots = zeros(size(snrValues));
 runtimeSeconds = zeros(size(snrValues));
 
-fprintf("\n5G NR HARQ SNR experiment - integrated event model\n");
-fprintf("Transport blocks per SNR: %d\n",cfg.NumTransportBlocks);
-fprintf("HARQ processes: %d\n",cfg.NHARQProcesses);
-fprintf("RV sequence: [%s]\n",num2str(cfg.RVSequence));
-fprintf("------------------------------------------------------------\n");
+fprintf("\n");
+fprintf("+==========================================================+\n");
+fprintf("|              5G NR HARQ SNR EXPERIMENT                 |\n");
+fprintf("+==========================================================+\n");
+fprintf("| Transport blocks : %-36d |\n",cfg.NumTransportBlocks);
+fprintf("| HARQ processes   : %-36d |\n",cfg.NHARQProcesses);
+fprintf("| RV sequence      : [%-33s] |\n",strtrim(num2str(cfg.RVSequence)));
+fprintf("| Modulation       : %-36s |\n",char(cfg.Modulation));
+fprintf("| Code rate        : %-36.3f |\n",cfg.TargetCodeRate);
+fprintf("| SCS              : %-32g kHz |\n",cfg.SubcarrierSpacing);
+fprintf("+----------------------------------------------------------+\n");
 
 for idx = 1:numel(snrValues)
 
@@ -35,7 +41,10 @@ for idx = 1:numel(snrValues)
     scenario.Seed = cfg.Seed;
     scenario.RVSequence = cfg.RVSequence;
 
-    fprintf("Running SNR = %g dB ...\n",scenario.SNRdB);
+    fprintf("\n");
+    fprintf(">> SNR %g dB   [%d/%d scenarios]\n", ...
+        scenario.SNRdB,idx,numel(snrValues));
+    fprintf("------------------------------------------------------------\n");
     drawnow;
 
     runTimer = tic;
@@ -53,24 +62,28 @@ for idx = 1:numel(snrValues)
     retransmissionProbability(idx) = metrics.retransmissionProbability;
     meanDeliveryLatencySlots(idx) = metrics.meanDeliveryLatencySlots;
 
-    fprintf("  first-transmission BLER           : %6.2f%%\n", ...
+    fprintf("\n");
+    fprintf("  RESULT @ %g dB\n",scenario.SNRdB);
+    fprintf("  +------------------------------------------------------+\n");
+    fprintf("  | First-transmission BLER : %8.2f %%                 |\n", ...
         firstTransmissionBLER(idx)*100);
-    fprintf("  final residual BLER               : %6.2f%%\n", ...
+    fprintf("  | Final residual BLER     : %8.2f %%                 |\n", ...
         finalResidualBLER(idx)*100);
-    fprintf("  delivered transport blocks        : %d / %d\n", ...
+    fprintf("  | Delivered TBs           : %4d / %-4d               |\n", ...
         metrics.deliveredTransportBlocks,metrics.observedTransportBlocks);
-    fprintf("  goodput                            : %.3f Mbit/s\n", ...
+    fprintf("  | Goodput                 : %8.3f Mbit/s             |\n", ...
         goodputMbps(idx));
-    fprintf("  mean attempts per delivered TB     : %.3f\n", ...
+    fprintf("  | Mean attempts           : %8.3f                    |\n", ...
         meanAttemptsPerDeliveredTb(idx));
-    fprintf("  mean retransmissions per delivered : %.3f\n", ...
+    fprintf("  | Mean retransmissions    : %8.3f                    |\n", ...
         meanRetransmissionsPerDeliveredTb(idx));
-    fprintf("  retransmission probability         : %.3f\n", ...
+    fprintf("  | Retransmission prob.    : %8.3f                    |\n", ...
         retransmissionProbability(idx));
-    fprintf("  mean delivery latency              : %.3f slots\n", ...
+    fprintf("  | Mean delivery latency   : %8.3f slots              |\n", ...
         meanDeliveryLatencySlots(idx));
-    fprintf("  MATLAB runtime                     : %.1f s\n\n", ...
+    fprintf("  | MATLAB runtime          : %8.1f s                  |\n", ...
         runtimeSeconds(idx));
+    fprintf("  +------------------------------------------------------+\n");
 end
 
 %% Summary table
@@ -149,4 +162,11 @@ saveas(figure2,fullfile(figureDirectory,"experiment_01_goodput_vs_snr.png"));
 saveas(figure3,fullfile(figureDirectory,"experiment_01_retransmissions_vs_snr.png"));
 saveas(figure4,fullfile(figureDirectory,"experiment_01_latency_vs_snr.png"));
 
-fprintf("\nSaved integrated SNR results under results/.\n");
+fprintf("\n");
+fprintf("+==========================================================+\n");
+fprintf("|                    EXPERIMENT COMPLETE                   |\n");
+fprintf("+==========================================================+\n");
+fprintf("| Data    : results/data/                                  |\n");
+fprintf("| Figures : results/figures/                               |\n");
+fprintf("+==========================================================+\n");
+fprintf("Done.\n");
