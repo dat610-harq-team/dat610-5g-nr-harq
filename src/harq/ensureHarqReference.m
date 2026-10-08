@@ -10,7 +10,6 @@ function helperPath = ensureHarqReference()
         return;
     end
 
-    % MathWorks examples are commonly stored below the MATLAB user folder.
     matlabUserPath = userpath;
     if contains(matlabUserPath,pathsep)
         matlabUserPath = extractBefore(matlabUserPath,pathsep);
@@ -18,6 +17,8 @@ function helperPath = ensureHarqReference()
 
     releaseName = version("-release");
 
+    % First try the two known MathWorks example folder names for the
+    % currently running MATLAB release.
     candidates = {
         fullfile(matlabUserPath,"Examples",releaseName,"5g", ...
             "Modeling5GNRTransportChannelsWithHARQExample")
@@ -26,16 +27,28 @@ function helperPath = ensureHarqReference()
     };
 
     for idx = 1:numel(candidates)
-        candidate = candidates{idx};
-        helper = fullfile(candidate,"HARQEntity.m");
+        helper = fullfile(candidates{idx},"HARQEntity.m");
         if isfile(helper)
-            addpath(candidate,"-begin");
+            addpath(candidates{idx},"-begin");
             helperPath = which("HARQEntity");
             return;
         end
     end
 
-    error("HARQ:MissingReferenceHelper", ...
-        ["HARQEntity.m was not found. Open the MathWorks example " ...
-         "'Model 5G NR Transport Channels with HARQ' once, then rerun."]);
+    % If MATLAB was upgraded, the example may still exist under a different
+    % release folder (for example R2022a). Search installed example folders.
+    searchPattern = fullfile(matlabUserPath,"Examples","R*","5g","*HARQ*","HARQEntity.m");
+    matches = dir(searchPattern);
+
+    if ~isempty(matches)
+        helperFolder = matches(1).folder;
+        addpath(helperFolder,"-begin");
+        helperPath = which("HARQEntity");
+        fprintf("Using HARQEntity from: %s\n",helperPath);
+        return;
+    end
+
+    error('HARQ:MissingReferenceHelper', ...
+        ['HARQEntity.m was not found. Open the MathWorks example ' ...
+         '''Model 5G NR Transport Channels with HARQ'' once, then rerun.']);
 end
