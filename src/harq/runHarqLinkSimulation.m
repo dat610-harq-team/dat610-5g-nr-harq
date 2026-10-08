@@ -35,13 +35,21 @@ function result = runHarqLinkSimulation(cfg, scenario)
     [~,pdschInfo] = nrPDSCHIndices(carrier,pdsch);
     tbs = nrTBS(pdsch.Modulation,1,numel(pdsch.PRBSet), ...
         pdschInfo.NREPerPRB,cfg.TargetCodeRate,0);
-    encoder = nrDLSCH('MultipleHARQProcesses',true, ...
-        'TargetCodeRate',cfg.TargetCodeRate);
-    decoder = nrDLSCHDecoder('MultipleHARQProcesses',true, ...
-        'TargetCodeRate',cfg.TargetCodeRate,'TransportBlockLength',tbs, ...
-        'LDPCDecodingAlgorithm',cfg.LDPCDecodingAlgorithm, ...
-        'MaximumLDPCIterationCount',cfg.MaximumLDPCIterationCount, ...
-        'AutoFlushSoftBuffer',true);
+    % Configure objects through properties for compatibility with older
+    % 5G Toolbox releases such as R2022a as well as newer releases.
+    encoder = nrDLSCH;
+    encoder.MultipleHARQProcesses = true;
+    encoder.TargetCodeRate = cfg.TargetCodeRate;
+
+    decoder = nrDLSCHDecoder;
+    decoder.MultipleHARQProcesses = true;
+    decoder.TargetCodeRate = cfg.TargetCodeRate;
+    decoder.TransportBlockLength = tbs;
+    decoder.LDPCDecodingAlgorithm = cfg.LDPCDecodingAlgorithm;
+    decoder.MaximumLDPCIterationCount = cfg.MaximumLDPCIterationCount;
+    if isprop(decoder,'AutoFlushSoftBuffer')
+        decoder.AutoFlushSoftBuffer = true;
+    end
     harq = HARQEntity(0:cfg.NHARQProcesses-1,rvSequence,1);
     % Independent substreams per TB/attempt match initial random draws across
     % budgets even when the number of retransmissions changes.
