@@ -1,33 +1,31 @@
 function cfg = defaultConfig()
-%DEFAULTCONFIG Baseline settings for the first working HARQ simulation.
-% Owner: Person 1; scientific values must still be reviewed by the group.
+%DEFAULTCONFIG Shared baseline settings for the integrated HARQ simulator.
 %
-% These baseline values come from the R2022a MathWorks example
-% "Model 5G NR Transport Channels with HARQ". They are a starting point,
-% not final experimental choices.
+% Person 1 owns the shared experiment entry point. Person 2's HARQ/event
+% implementation is now used underneath runSimulation.
+%
+% Values are starting points and still need final scientific justification.
 
-    cfg.NumTransportBlocks = 20;   % Small value for fast smoke tests
-    cfg.RandomSeed = "default";
+    cfg.NumTransportBlocks = 300;
+    cfg.Seed = 610;
 
-    % DL-SCH / HARQ baseline
-    cfg.TargetCodeRate = 490/1024;
+    % HARQ
+    cfg.NHARQProcesses = 16;
     cfg.RVSequence = [0 2 3 1];
 
-    % Carrier baseline
+    % Carrier / PDSCH
+    cfg.TargetCodeRate = 490/1024;
     cfg.SubcarrierSpacing = 15;    % kHz
-    cfg.NSizeGrid = 52;            % 52 RBs ~= 10 MHz at 15 kHz SCS
+    cfg.NSizeGrid = 12;            % Compact allocation used by Person 2
     cfg.CyclicPrefix = "Normal";
-
-    % PDSCH baseline
     cfg.Modulation = "16QAM";
     cfg.NumLayers = 1;
 
-    % Decoder baseline
+    % Decoder
     cfg.LDPCDecodingAlgorithm = "Normalized min-sum";
     cfg.MaximumLDPCIterationCount = 6;
 
-    % TODO with the group:
-    % - justify final run length and SNR range
-    % - decide whether later experiments use multiple parallel HARQ processes
-    % - record reasons/sources for final reported parameter values
+    % Shared experiment policy
+    % Keep channel-specific settings out of this baseline until Person 3's
+    % waveform channel path is integrated.
 end
