@@ -25,6 +25,10 @@ function cfg = defaultConfig()
     cfg.LDPCDecodingAlgorithm = "Normalized min-sum";
     cfg.MaximumLDPCIterationCount = 6;
 
+    % Progress output
+    cfg.ShowProgress = true;
+    cfg.ProgressEvery = 25;
+
     % Shared experiment policy
     % Keep channel-specific settings out of this baseline until Person 3's
     % waveform channel path is integrated.
