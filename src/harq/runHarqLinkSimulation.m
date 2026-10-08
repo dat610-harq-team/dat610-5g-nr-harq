@@ -134,11 +134,18 @@ function result = runHarqLinkSimulation(cfg, scenario)
         end
 
         if cfg.ShowProgress && admitted >= nextProgress
-            fprintf(['  SNR %g dB | TBs %d/%d | completed %d | ' ...
-                'attempts %d | slot %d | active HARQ %d\n'], ...
-                scenario.SNRdB,admitted,cfg.NumTransportBlocks,completed, ...
-                nEvents,slot,nnz(active));
+            progress = admitted/cfg.NumTransportBlocks;
+            barWidth = 28;
+            filled = min(barWidth,round(progress*barWidth));
+            bar = [repmat('#',1,filled),repmat('-',1,barWidth-filled)];
+
+            fprintf('  [%s] %3.0f%%  TB %3d/%-3d\n', ...
+                bar,progress*100,admitted,cfg.NumTransportBlocks);
+            fprintf(['      completed %-3d | attempts %-4d | slot %-4d | ' ...
+                'active HARQ %d\n'], ...
+                completed,nEvents,slot,nnz(active));
             drawnow;
+
             nextProgress = min(nextProgress+cfg.ProgressEvery,cfg.NumTransportBlocks);
             if nextProgress == cfg.NumTransportBlocks && admitted == cfg.NumTransportBlocks
                 nextProgress = cfg.NumTransportBlocks+1;
@@ -147,8 +154,8 @@ function result = runHarqLinkSimulation(cfg, scenario)
 
         if cfg.ShowProgress && admitted == cfg.NumTransportBlocks && ...
                 any(active) && ~drainAnnounced
-            fprintf('  SNR %g dB | draining outstanding HARQ processes...\n', ...
-                scenario.SNRdB);
+            fprintf('  [drain] All TBs admitted; resolving %d active HARQ process(es)...\n', ...
+                nnz(active));
             drawnow;
             drainAnnounced = true;
         end
@@ -158,9 +165,10 @@ function result = runHarqLinkSimulation(cfg, scenario)
         slot = slot+1;
     end
     if cfg.ShowProgress
-        fprintf(['  SNR %g dB | completed %d/%d | attempts %d | ' ...
-            'final slot %d\n'], ...
-            scenario.SNRdB,completed,cfg.NumTransportBlocks,nEvents,slot);
+        fprintf('  [############################] 100%%  TB %d/%d\n', ...
+            cfg.NumTransportBlocks,cfg.NumTransportBlocks);
+        fprintf('      completed %d | attempts %d | final slot %d | active HARQ 0\n', ...
+            completed,nEvents,slot);
         drawnow;
     end
 
