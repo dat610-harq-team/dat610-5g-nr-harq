@@ -62,6 +62,12 @@ function result = runHarqLinkSimulation(cfg, scenario)
     types = [repmat({'double'},1,7),{'logical','logical','double','logical'}];
     events = table('Size',[maxEvents,numel(names)],'VariableTypes',types,'VariableNames',names);
     active = false(cfg.NHARQProcesses,1);
+
+    % Keep our own per-process metadata instead of storing it inside
+    % HARQEntity. The R2022a helper does not expose a UserData property.
+    processTbId = NaN(cfg.NHARQProcesses,1);
+    processFirstSlot = NaN(cfg.NHARQProcesses,1);
+
     admitted = 0;
     slot = 0;
     nEvents = 0;
@@ -85,24 +91,33 @@ function result = runHarqLinkSimulation(cfg, scenario)
                 resetSoftBuffer(decoder,0,pid);
                 didReset = true;
             end
-            harq.UserData = struct('tbId',admitted,'firstSlot',slot);
+            processTbId(pid+1) = admitted;
+            processFirstSlot(pid+1) = slot;
             active(pid+1) = true;
         end
-        tbInfo = harq.UserData;
+
+        tbId = processTbId(pid+1);
+        firstSlot = processFirstSlot(pid+1);
+
         attempt = harq.TransmissionNumber+1; % Helper is zero-based
         rv = harq.RedundancyVersion;
         coded = encoder(pdsch.Modulation,1,pdschInfo.G,rv,pid);
         symbols = nrPDSCH(carrier,pdsch,coded);
-        noiseStream.Substream = (tbInfo.tbId-1)*4+attempt;
+        noiseStream.Substream = (tbId-1)*4+attempt;
         noise = sqrt(noiseVariance/2)*(randn(noiseStream,size(symbols)) + ...
             1i*randn(noiseStream,size(symbols)));
         llrs = nrPDSCHDecode(carrier,pdsch,symbols+noise,noiseVariance);
         [~,crcError] = decoder(llrs,pdsch.Modulation,1,rv,pid);
         terminal = ~crcError || attempt == numel(rvSequence);
         nEvents = nEvents+1;
-        events(nEvents,:) = {tbInfo.tbId,pid,0,slot,attempt,rv,tbs, ...
-            logical(crcError),logical(terminal),tbInfo.firstSlot,didReset};
-        if terminal, active(pid+1) = false; end
+        events(nEvents,:) = {tbId,pid,0,slot,attempt,rv,tbs, ...
+            logical(crcError),logical(terminal),firstSlot,didReset};
+
+        if terminal
+            active(pid+1) = false;
+            processTbId(pid+1) = NaN;
+            processFirstSlot(pid+1) = NaN;
+        end
         % Capture identifiers above before selecting the next process.
         updateAndAdvance(harq,crcError,tbs,pdschInfo.G);
         slot = slot+1;
