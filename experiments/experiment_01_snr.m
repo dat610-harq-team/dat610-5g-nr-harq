@@ -1,175 +1,152 @@
 %% Experiment 1 - SNR Sweep
 % Owner: Person 1
 %
-% Purpose:
-% Study how Signal-to-Noise Ratio (SNR) changes HARQ behavior.
-%
-% This is the first serious experiment run after the smoke/development tests.
-% The settings are still provisional until the group justifies the final
-% parameter choices for the report.
+% Uses the shared runSimulation entry point and Person 2's event/metric model.
 
 repoRoot = fileparts(fileparts(mfilename("fullpath")));
 addpath(genpath(fullfile(repoRoot,"src")));
 
 cfg = defaultConfig();
-
-% Larger run for more stable estimates than the 20- and 50-block tests.
 cfg.NumTransportBlocks = 300;
 
-% Keep broad coverage, but add finer resolution around the transition region
-% where the earlier development sweep changed sharply.
+% Broad coverage plus finer resolution near the transition observed earlier.
 snrValues = [2 4 5 5.5 6 6.5 7 7.5 8 8.5 9 10 12];
 
 results = cell(1,numel(snrValues));
 
-firstAttemptBLER = zeros(size(snrValues));
-finalFailureRate = zeros(size(snrValues));
-averageTransmissionAttempts = zeros(size(snrValues));
-averageRetransmissionsPerBlock = zeros(size(snrValues));
-harqRecoveredBlocks = zeros(size(snrValues));
-elapsedSeconds = zeros(size(snrValues));
+firstTransmissionBLER = zeros(size(snrValues));
+finalResidualBLER = zeros(size(snrValues));
+goodputMbps = zeros(size(snrValues));
+meanAttemptsPerDeliveredTb = zeros(size(snrValues));
+meanRetransmissionsPerDeliveredTb = zeros(size(snrValues));
+retransmissionProbability = zeros(size(snrValues));
+meanDeliveryLatencySlots = zeros(size(snrValues));
+runtimeSeconds = zeros(size(snrValues));
 
-fprintf("\n5G NR HARQ SNR experiment\n");
+fprintf("\n5G NR HARQ SNR experiment - integrated event model\n");
 fprintf("Transport blocks per SNR: %d\n",cfg.NumTransportBlocks);
-fprintf("SNR points: %d\n",numel(snrValues));
+fprintf("HARQ processes: %d\n",cfg.NHARQProcesses);
+fprintf("RV sequence: [%s]\n",num2str(cfg.RVSequence));
 fprintf("------------------------------------------------------------\n");
 
 for idx = 1:numel(snrValues)
 
     scenario.SNRdB = snrValues(idx);
+    scenario.Seed = cfg.Seed;
+    scenario.RVSequence = cfg.RVSequence;
 
     fprintf("Running SNR = %g dB ...\n",scenario.SNRdB);
     drawnow;
 
     runTimer = tic;
     results{idx} = runSimulation(cfg,scenario);
-    elapsedSeconds(idx) = toc(runTimer);
+    runtimeSeconds(idx) = toc(runTimer);
 
-    raw = results{idx}.raw;
+    metrics = results{idx}.metrics;
 
-    firstAttemptFailures = sum(raw.firstAttemptBlockError);
+    firstTransmissionBLER(idx) = metrics.firstTransmissionBLER;
+    finalResidualBLER(idx) = metrics.finalResidualBLER;
+    goodputMbps(idx) = metrics.goodputBitsPerSecond / 1e6;
+    meanAttemptsPerDeliveredTb(idx) = metrics.meanAttemptsPerDeliveredTb;
+    meanRetransmissionsPerDeliveredTb(idx) = ...
+        metrics.meanRetransmissionsPerDeliveredTb;
+    retransmissionProbability(idx) = metrics.retransmissionProbability;
+    meanDeliveryLatencySlots(idx) = metrics.meanDeliveryLatencySlots;
 
-    firstAttemptBLER(idx) = ...
-        firstAttemptFailures / raw.totalTransportBlocks;
-
-    finalFailureRate(idx) = ...
-        raw.finalFailedTransportBlocks / raw.totalTransportBlocks;
-
-    averageTransmissionAttempts(idx) = ...
-        raw.totalTransmissionAttempts / raw.totalTransportBlocks;
-
-    averageRetransmissionsPerBlock(idx) = ...
-        raw.totalRetransmissions / raw.totalTransportBlocks;
-
-    % Blocks that failed on the first attempt but eventually succeeded.
-    harqRecoveredBlocks(idx) = ...
-        firstAttemptFailures - raw.finalFailedTransportBlocks;
-
-    fprintf("  first-attempt failures            : %d\n",firstAttemptFailures);
-    fprintf("  first-attempt BLER                : %6.2f%%\n", ...
-        firstAttemptBLER(idx)*100);
-    fprintf("  HARQ-recovered blocks             : %d\n", ...
-        harqRecoveredBlocks(idx));
-    fprintf("  final HARQ failure rate           : %6.2f%%\n", ...
-        finalFailureRate(idx)*100);
-    fprintf("  average transmission attempts     : %.3f\n", ...
-        averageTransmissionAttempts(idx));
-    fprintf("  average retransmissions per block : %.3f\n", ...
-        averageRetransmissionsPerBlock(idx));
-    fprintf("  runtime                           : %.1f s\n\n", ...
-        elapsedSeconds(idx));
+    fprintf("  first-transmission BLER           : %6.2f%%\n", ...
+        firstTransmissionBLER(idx)*100);
+    fprintf("  final residual BLER               : %6.2f%%\n", ...
+        finalResidualBLER(idx)*100);
+    fprintf("  delivered transport blocks        : %d / %d\n", ...
+        metrics.deliveredTransportBlocks,metrics.observedTransportBlocks);
+    fprintf("  goodput                            : %.3f Mbit/s\n", ...
+        goodputMbps(idx));
+    fprintf("  mean attempts per delivered TB     : %.3f\n", ...
+        meanAttemptsPerDeliveredTb(idx));
+    fprintf("  mean retransmissions per delivered : %.3f\n", ...
+        meanRetransmissionsPerDeliveredTb(idx));
+    fprintf("  retransmission probability         : %.3f\n", ...
+        retransmissionProbability(idx));
+    fprintf("  mean delivery latency              : %.3f slots\n", ...
+        meanDeliveryLatencySlots(idx));
+    fprintf("  MATLAB runtime                     : %.1f s\n\n", ...
+        runtimeSeconds(idx));
 end
 
-%% Create summary table
+%% Summary table
 
 summaryTable = table( ...
     snrValues(:), ...
-    firstAttemptBLER(:), ...
-    finalFailureRate(:), ...
-    harqRecoveredBlocks(:), ...
-    averageTransmissionAttempts(:), ...
-    averageRetransmissionsPerBlock(:), ...
-    elapsedSeconds(:), ...
+    firstTransmissionBLER(:), ...
+    finalResidualBLER(:), ...
+    goodputMbps(:), ...
+    meanAttemptsPerDeliveredTb(:), ...
+    meanRetransmissionsPerDeliveredTb(:), ...
+    retransmissionProbability(:), ...
+    meanDeliveryLatencySlots(:), ...
+    runtimeSeconds(:), ...
     'VariableNames',{ ...
         'SNRdB', ...
-        'FirstAttemptBLER', ...
-        'FinalHARQFailureRate', ...
-        'HARQRecoveredBlocks', ...
-        'AverageTransmissionAttempts', ...
-        'AverageRetransmissionsPerBlock', ...
+        'FirstTransmissionBLER', ...
+        'FinalResidualBLER', ...
+        'GoodputMbps', ...
+        'MeanAttemptsPerDeliveredTb', ...
+        'MeanRetransmissionsPerDeliveredTb', ...
+        'RetransmissionProbability', ...
+        'MeanDeliveryLatencySlots', ...
         'RuntimeSeconds'});
 
 disp(summaryTable);
 
-%% Prepare output directories
+%% Output directories
 
 dataDirectory = fullfile(repoRoot,"results","data");
 figureDirectory = fullfile(repoRoot,"results","figures");
 
-if ~exist(dataDirectory,"dir")
-    mkdir(dataDirectory);
-end
+if ~exist(dataDirectory,"dir"), mkdir(dataDirectory); end
+if ~exist(figureDirectory,"dir"), mkdir(figureDirectory); end
 
-if ~exist(figureDirectory,"dir")
-    mkdir(figureDirectory);
-end
-
-%% Plot 1 - First-attempt BLER and final HARQ failure rate
+%% Figures
 
 figure1 = figure;
-plot(snrValues,firstAttemptBLER,"-o","LineWidth",1.5);
+plot(snrValues,firstTransmissionBLER,"-o","LineWidth",1.5);
 hold on;
-plot(snrValues,finalFailureRate,"-s","LineWidth",1.5);
+plot(snrValues,finalResidualBLER,"-s","LineWidth",1.5);
 hold off;
 grid on;
-xlabel("Signal-to-Noise Ratio (dB)");
-ylabel("Rate");
-title("Block Failure Behavior vs SNR");
-legend("First-attempt BLER","Final HARQ failure rate","Location","best");
-
-%% Plot 2 - Average transmission attempts
+xlabel("PDSCH symbol E_s/N_0 (dB)");
+ylabel("Block error rate");
+legend("First transmission","After HARQ","Location","best");
 
 figure2 = figure;
-plot(snrValues,averageTransmissionAttempts,"-o","LineWidth",1.5);
+plot(snrValues,goodputMbps,"-o","LineWidth",1.5);
 grid on;
-xlabel("Signal-to-Noise Ratio (dB)");
-ylabel("Average transmission attempts per transport block");
-title("Average HARQ Transmission Attempts vs SNR");
-
-%% Plot 3 - Average retransmissions
+xlabel("PDSCH symbol E_s/N_0 (dB)");
+ylabel("Goodput (Mbit/s)");
 
 figure3 = figure;
-plot(snrValues,averageRetransmissionsPerBlock,"-o","LineWidth",1.5);
+plot(snrValues,meanRetransmissionsPerDeliveredTb,"-o","LineWidth",1.5);
 grid on;
-xlabel("Signal-to-Noise Ratio (dB)");
-ylabel("Average retransmissions per transport block");
-title("Average HARQ Retransmissions vs SNR");
+xlabel("PDSCH symbol E_s/N_0 (dB)");
+ylabel("Mean retransmissions per delivered TB");
 
-%% Save experiment outputs
+figure4 = figure;
+plot(snrValues,meanDeliveryLatencySlots,"-o","LineWidth",1.5);
+grid on;
+xlabel("PDSCH symbol E_s/N_0 (dB)");
+ylabel("Mean delivery latency (slots)");
 
-save(fullfile(dataDirectory,"experiment_01_snr_results.mat"), ...
-    "snrValues", ...
-    "results", ...
-    "firstAttemptBLER", ...
-    "finalFailureRate", ...
-    "harqRecoveredBlocks", ...
-    "averageTransmissionAttempts", ...
-    "averageRetransmissionsPerBlock", ...
-    "elapsedSeconds", ...
-    "summaryTable", ...
-    "cfg");
+%% Save
+
+save(fullfile(dataDirectory,"experiment_01_snr_integrated.mat"), ...
+    "snrValues","results","summaryTable","cfg");
 
 writetable(summaryTable, ...
-    fullfile(dataDirectory,"experiment_01_snr_summary.csv"));
+    fullfile(dataDirectory,"experiment_01_snr_integrated.csv"));
 
 saveas(figure1,fullfile(figureDirectory,"experiment_01_bler_vs_snr.png"));
-saveas(figure2,fullfile(figureDirectory,"experiment_01_attempts_vs_snr.png"));
+saveas(figure2,fullfile(figureDirectory,"experiment_01_goodput_vs_snr.png"));
 saveas(figure3,fullfile(figureDirectory,"experiment_01_retransmissions_vs_snr.png"));
+saveas(figure4,fullfile(figureDirectory,"experiment_01_latency_vs_snr.png"));
 
-fprintf("\nSaved raw data, CSV summary, and figures under results/.\n");
-
-% Before treating these as final report results:
-% - inspect curve stability
-% - decide whether 300 blocks are sufficient
-% - justify final SNR range from literature/reference behavior
-% - confirm final metric definitions with Person 2
+fprintf("\nSaved integrated SNR results under results/.\n");
