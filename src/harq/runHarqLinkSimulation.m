@@ -7,6 +7,16 @@ function result = runHarqLinkSimulation(cfg, scenario)
     validateattributes(cfg.NHARQProcesses,{'numeric'},{'scalar','integer','>=',1,'<=',16});
     validateattributes(cfg.NSizeGrid,{'numeric'},{'scalar','integer','>=',1,'<=',275});
     validateattributes(cfg.TargetCodeRate,{'numeric'},{'scalar','>',0,'<',1});
+
+    if ~isfield(cfg,'ShowProgress')
+        cfg.ShowProgress = false;
+    end
+    if ~isfield(cfg,'ProgressEvery')
+        cfg.ProgressEvery = 25;
+    end
+    validateattributes(cfg.ShowProgress,{'logical','numeric'},{'scalar'});
+    validateattributes(cfg.ProgressEvery,{'numeric'},{'scalar','integer','positive','finite'});
+
     validateattributes(scenario.SNRdB,{'numeric'},{'scalar','real','finite'});
     validateattributes(scenario.Seed,{'numeric'},{'scalar','integer','nonnegative','<=',2^32-1});
     rvSequence = scenario.RVSequence(:).';
@@ -69,8 +79,11 @@ function result = runHarqLinkSimulation(cfg, scenario)
     processFirstSlot = NaN(cfg.NHARQProcesses,1);
 
     admitted = 0;
+    completed = 0;
     slot = 0;
     nEvents = 0;
+    nextProgress = min(cfg.ProgressEvery,cfg.NumTransportBlocks);
+    drainAnnounced = false;
     % After admission closes, unused processes idle. Count these slots to
     % preserve retransmission spacing and the elapsed-time denominator.
     while admitted < cfg.NumTransportBlocks || any(active)
@@ -117,11 +130,40 @@ function result = runHarqLinkSimulation(cfg, scenario)
             active(pid+1) = false;
             processTbId(pid+1) = NaN;
             processFirstSlot(pid+1) = NaN;
+            completed = completed+1;
         end
+
+        if cfg.ShowProgress && admitted >= nextProgress
+            fprintf(['  SNR %g dB | TBs %d/%d | completed %d | ' ...
+                'attempts %d | slot %d | active HARQ %d\n'], ...
+                scenario.SNRdB,admitted,cfg.NumTransportBlocks,completed, ...
+                nEvents,slot,nnz(active));
+            drawnow;
+            nextProgress = min(nextProgress+cfg.ProgressEvery,cfg.NumTransportBlocks);
+            if nextProgress == cfg.NumTransportBlocks && admitted == cfg.NumTransportBlocks
+                nextProgress = cfg.NumTransportBlocks+1;
+            end
+        end
+
+        if cfg.ShowProgress && admitted == cfg.NumTransportBlocks && ...
+                any(active) && ~drainAnnounced
+            fprintf('  SNR %g dB | draining outstanding HARQ processes...\n', ...
+                scenario.SNRdB);
+            drawnow;
+            drainAnnounced = true;
+        end
+
         % Capture identifiers above before selecting the next process.
         updateAndAdvance(harq,crcError,tbs,pdschInfo.G);
         slot = slot+1;
     end
+    if cfg.ShowProgress
+        fprintf(['  SNR %g dB | completed %d/%d | attempts %d | ' ...
+            'final slot %d\n'], ...
+            scenario.SNRdB,completed,cfg.NumTransportBlocks,nEvents,slot);
+        drawnow;
+    end
+
     raw = struct('events',events(1:nEvents,:),'numSlots',slot, ...
         'slotDurationSeconds',1e-3*15/cfg.SubcarrierSpacing);
     result.cfg = cfg;
