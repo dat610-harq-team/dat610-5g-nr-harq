@@ -149,7 +149,7 @@ function output = experiment_01_snr(mode, overrides)
             stem = strrep(stem,".","p");
             stem = strrep(stem,"+","pos");
             stem = strrep(stem,"-","neg");
-            save(fullfile(runDir,[stem ".mat"]),"result");
+            save(fullfile(runDir,[stem '.mat']),'result');
 
             fprintf("\n  RESULT\n");
             fprintf("  +------------------------------------------------------+\n");
