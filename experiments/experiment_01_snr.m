@@ -12,6 +12,10 @@ function output = experiment_01_snr(mode, overrides)
 %       Small exploratory sweep used only to locate the region where
 %       residual HARQ failures begin.
 %
+%   experiment_01_snr("low-snr-study")
+%       Final-style lower-transition study: 1000 TBs per run, three seeds,
+%       fine 0.25 dB spacing from -1 to 0.5 dB.
+%
 %   experiment_01_snr(mode, overrides)
 %       Override experiment settings, for example:
 %       experiment_01_snr("study",struct("NumTransportBlocks",500))
@@ -20,7 +24,7 @@ function output = experiment_01_snr(mode, overrides)
 % repeated runs, aggregation, uncertainty reporting, plotting and saving.
 
     arguments
-        mode (1,1) string {mustBeMember(mode,["quick","study","low-snr-pilot"])} = "quick"
+        mode (1,1) string {mustBeMember(mode,["quick","study","low-snr-pilot","low-snr-study"])} = "quick"
         overrides (1,1) struct = struct()
     end
 
@@ -43,6 +47,10 @@ function output = experiment_01_snr(mode, overrides)
             snrValues = [-2 -1 0 1 2 3 4];
             seeds = 610;
             cfg.NumTransportBlocks = 200;
+        case "low-snr-study"
+            snrValues = -1:0.25:0.5;
+            seeds = [610 611 612];
+            cfg.NumTransportBlocks = 1000;
     end
 
     % Optional user overrides without changing the shared default configuration.
@@ -268,6 +276,8 @@ function output = experiment_01_snr(mode, overrides)
         fprintf("QUICK PILOT: use study mode for final statistical evidence.\n");
     elseif mode == "low-snr-pilot"
         fprintf("LOW-SNR PILOT: use this only to locate the residual-failure region.\n");
+    elseif mode == "low-snr-study"
+        fprintf("LOW-SNR STUDY: pooled BLER uses Wilson 95%% intervals around the HARQ recovery boundary.\n");
     else
         fprintf("STUDY: pooled BLER uses Wilson 95%% intervals; other error bars show seed variability.\n");
     end
