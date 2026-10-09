@@ -13,14 +13,18 @@ function result = runHarqLinkSimulation(cfg, scenario)
     validateattributes(rvSequence,{'numeric'},{'nonempty','integer','>=',0,'<=',3});
     assert(numel(rvSequence)<=4 && rvSequence(1)==0,'HARQ:RVSequence', ...
         'Use one to four attempts, starting with RV 0.');
+    assert(cfg.NumLayers==1,'HARQ:NumLayers', ...
+        'This symbol-domain experiment supports one layer/codeword.');
+    assert(strcmpi(cfg.CyclicPrefix,'Normal'),'HARQ:CyclicPrefix', ...
+        'This full-slot experiment supports normal cyclic prefix.');
     carrier = nrCarrierConfig;
     carrier.NSizeGrid = cfg.NSizeGrid;
     carrier.SubcarrierSpacing = cfg.SubcarrierSpacing;
-    carrier.CyclicPrefix = 'Normal';
+    carrier.CyclicPrefix = cfg.CyclicPrefix;
     carrier.NCellID = 0;
     pdsch = nrPDSCHConfig;
     pdsch.Modulation = cfg.Modulation;
-    pdsch.NumLayers = 1;
+    pdsch.NumLayers = cfg.NumLayers;
     pdsch.PRBSet = 0:cfg.NSizeGrid-1;
     pdsch.SymbolAllocation = [0 14];
     pdsch.MappingType = 'A';

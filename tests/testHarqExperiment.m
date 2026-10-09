@@ -10,6 +10,21 @@ function setupOnce(testCase)
     testCase.TestData.cfg = harqExperimentConfig('quick');
 end
 
+function testSharedBaseline(testCase)
+    baseline = defaultConfig();
+    cfg = harqExperimentConfig('quick');
+    fields = fieldnames(baseline);
+    for k = 1:numel(fields)
+        verifyEqual(testCase,cfg.(fields{k}),baseline.(fields{k}));
+    end
+    verifyEqual(testCase,cfg.RVSequences{end},baseline.RVSequence(:).');
+    if isequal(string(baseline.RandomSeed),"default")
+        verifyEqual(testCase,cfg.Seeds,0);
+    else
+        verifyEqual(testCase,cfg.Seeds,baseline.RandomSeed);
+    end
+end
+
 function testKnownMetricsAndCensoring(testCase)
     % TB1 succeeds immediately; TB2 succeeds after retry; TB3 drops; TB4 pending.
     raw.events = table([1;2;2;3;3;4],[0;1;3;2;4;5],[1;1;2;1;2;1], ...

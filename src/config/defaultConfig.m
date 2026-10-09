@@ -12,6 +12,9 @@ function cfg = defaultConfig()
     % DL-SCH / HARQ baseline
     cfg.TargetCodeRate = 490/1024;
     cfg.RVSequence = [0 2 3 1];
+    % Fixed cyclic scheduler: one process scheduled per slot, ideal feedback.
+    % Set to 1 for sequential HARQ; supported range is 1 to 16 processes.
+    cfg.NHARQProcesses = 16;
 
     % Carrier baseline
     cfg.SubcarrierSpacing = 15;    % kHz
@@ -26,8 +29,9 @@ function cfg = defaultConfig()
     cfg.LDPCDecodingAlgorithm = "Normalized min-sum";
     cfg.MaximumLDPCIterationCount = 6;
 
-    % TODO with the group:
-    % - justify final run length and SNR range
-    % - decide whether later experiments use multiple parallel HARQ processes
-    % - record reasons/sources for final reported parameter values
+    % Before final report:
+    % - choose run length using pilot results and confidence intervals
+    % - refine SNR points around the observed BLER transition
+    % - review the experiment's 16-process cyclic HARQ scheduler
+    % - document parameter sources and justify experiment-specific choices
 end
