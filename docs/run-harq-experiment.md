@@ -32,8 +32,8 @@ output = experiment_02_harq("study");
 | Setting | Quick | Study |
 | --- | --- | --- |
 | Symbol SNR, dB | -4, 0, 7, 10 | -4, -2, 0, 2, 4, 6, 7, 8, 10 |
-| New TBs per configuration/SNR/seed | 64 | 1000 |
-| Seeds | 610 | 610, 611, 612 |
+| New TBs per configuration/SNR/seed | 20 (shared default) | 1000 |
+| Seeds | 0 | 0, 1, 2 |
 | Configurations | 0, 1, 3 maximum retransmissions | Same |
 | Total scenario runs | 12 | 81 |
 
@@ -47,7 +47,7 @@ settings = struct('SNRdB',5:0.5:8,'NumTransportBlocks',500, ...
 output = experiment_02_harq("study",settings);
 ```
 
-The quick pilot takes approximately a minute on the development machine.
+Quick mode uses the shared baseline allocation and transport-block count.
 Study mode processes many more blocks and can take tens of minutes or longer;
 each completed scenario is saved immediately. The complete sweep is not
 required to check that installation, metrics, and plotting work.
@@ -78,7 +78,7 @@ Toolbox, Statistics and Machine Learning Toolbox, or a GPU.
 
 ## What is held fixed
 
-- 12 resource blocks, 15 kHz subcarrier spacing, normal CP, one layer/codeword.
+- 52 resource blocks, 15 kHz subcarrier spacing, normal CP, one layer/codeword.
 - 16QAM, target code rate 490/1024, full-slot allocation and fixed TBS.
 - Type-A mapping, one type-1 DM-RS symbol at position 2, two CDM groups without
   data; DM-RS affects available data resources/TBS but no channel-estimation
@@ -88,9 +88,9 @@ Toolbox, Statistics and Machine Learning Toolbox, or a GPU.
 - 16 HARQ processes, cyclic order, one scheduled process per 1 ms slot.
 - Ideal CRC feedback without feedback-channel errors or processing-time model.
 
-The compact allocation is a project runtime choice. HARQ process order,
+Physical settings and quick run length are inherited from `defaultConfig.m`. Retry comparisons use prefixes of its RV sequence. The shared seed "default" maps to numeric seed 0 for the independent per-TB streams. Study mode uses 1000 blocks and three consecutive seeds. The runner currently requires normal CP and one layer. HARQ process order,
 attempt limit, and RV sequence are simulation choices, not claims about a
-mandatory NR scheduler. `harqExperimentConfig.m` contains editable defaults.
+mandatory NR scheduler. `harqExperimentConfig.m` adds sweep and scheduler settings.
 Do not compare the resulting absolute throughput with a commercial 5G rate.
 
 ## Link and HARQ behavior
@@ -191,7 +191,7 @@ tests = runtests('tests');
 assertSuccess(tests);
 ```
 
-The seven tests cover hand-calculated histories/censoring, undefined means
+The tests cover shared baseline inheritance, hand-calculated histories/censoring, undefined means
 when everything fails, helper progression and repeated RVs, high-SNR decoding,
 repeatability, retry limits, process reuse/reset, drain time, matched initial
 attempts, soft-combining recovery, and pooled summaries. Synthetic histories
