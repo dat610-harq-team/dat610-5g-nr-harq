@@ -145,11 +145,16 @@ function output = experiment_01_snr(mode, overrides)
             rows{runIndex} = struct2table(row);
             results{runIndex} = result;
 
-            stem = sprintf("snr_%+05.2f_seed_%d",scenario.SNRdB,scenario.Seed);
-            stem = strrep(stem,".","p");
-            stem = strrep(stem,"+","pos");
-            stem = strrep(stem,"-","neg");
-            save(fullfile(runDir,[stem '.mat']),'result');
+            % Use character vectors for the filename on older MATLAB releases.
+            % With a string-format sprintf, R2022a can keep "stem" as a string;
+            % [stem '.mat'] then becomes a two-element string array, which save
+            % rejects because the filename must be one text scalar.
+            stem = sprintf('snr_%+05.2f_seed_%d',scenario.SNRdB,scenario.Seed);
+            stem = strrep(stem,'.','p');
+            stem = strrep(stem,'+','pos');
+            stem = strrep(stem,'-','neg');
+            resultFile = fullfile(char(runDir),[stem '.mat']);
+            save(resultFile,'result');
 
             fprintf("\n  RESULT\n");
             fprintf("  +------------------------------------------------------+\n");
