@@ -35,7 +35,7 @@ maxError = max(abs(rxSymbols - symbols))
 
 %% Støy i bølgen
 
-SNRdB = 5;
+SNRdB = 40;
 SNR = 10^(SNRdB/10);
 
 ofdmInfo = nrOFDMInfo(carrier);
@@ -50,3 +50,47 @@ rxSymbolsNoisy = rxGridNoisy(pdschInd);
 measuredNoiseVar = mean(abs(rxSymbolsNoisy - symbols).^2)
 expectedNoiseVar = 1/SNR
 
+%% TDL kanal
+
+chCfg.channelType = 'TDL-C';
+chCfg.DelaySpread = 300e-9;
+chCfg.MaximumDopplerShift = 5;
+chCfg.NTxAnts = 1;
+chCfg.NRxAnts = 1;
+chCfg.SampleRate = ofdmInfo.SampleRate; %Dette er den ekte sampleraten.
+
+ch = createChannel(chCfg);
+[rxWaveformTDL, pathGains, sampleTimes] = applyChannel(ch, waveform);
+
+size(waveform)
+size(rxWaveformTDL)
+size(pathGains)
+
+%% TDL kanal Støy
+
+noiseTDL = N0*complex(randn(size(rxWaveformTDL)), randn(size(rxWaveformTDL)));
+rxWaveformTDL = rxWaveformTDL + noiseTDL;
+
+%Finn hvor signalet faktisk starter
+pathFilters = getPathFilters(ch.object);
+offset = nrPerfectTimingEstimate(pathGains, pathFilters)
+rxWaveformTDL = rxWaveformTDL(1+offset:end, :);
+
+%Pakk ut bølgen
+rxGridTDL = nrOFDMDemodulate(carrier, rxWaveformTDL);
+size(rxGridTDL)
+
+%% Hva gjorde stormen med hver rute
+
+%Perfekt kanalestimat
+H = nrPerfectChannelEstimate(carrier, pathGains, pathFilters, offset, sampleTimes);
+
+%Hent data-rutene, både mottatte symboler og kanalen
+[rxSymTDL, Hpdsch] = nrExtractResources(pdschInd, rxGridTDL, H);
+
+%Rett opp det kanalen gjorde
+noiseVar = 1/SNR;
+[eqSymTDL, csi] = nrEqualizeMMSE(rxSymTDL, Hpdsch, noiseVar);
+
+%Hvor langt unna originalen er de rettede symbolene?
+errTDL = mean(abs(eqSymTDL - symbols).^2)

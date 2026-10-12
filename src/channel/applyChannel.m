@@ -1,4 +1,4 @@
-function receivedWaveform = applyChannel(channel, transmittedWaveform)
+function [receivedWaveform, pathGains, sampleTimes] = applyChannel(channel, transmittedWaveform)
 %APPLYCHANNEL Placeholder between NR transmission and reception.
 % Owner: Person 3.
 % Inputs: channel - validated channel setup;
@@ -12,13 +12,15 @@ function receivedWaveform = applyChannel(channel, transmittedWaveform)
 
 if strcmpi(channel.type, 'AWGN')
     receivedWaveform = transmittedWaveform;
+    pathGains = [];
+    sampleTimes = [];
 
 elseif startsWith(channel.type, 'TDL', 'IgnoreCase', true)
     chInfo = info(channel.object);
     maxChDelay = ceil(max(chInfo.PathDelays*channel.object.SampleRate)) + chInfo.ChannelFilterDelay;
 
     paddedWaveform = [transmittedWaveform; zeros(maxChDelay, size(transmittedWaveform,2))];
-    receivedWaveform = channel.object(paddedWaveform);
+    [receivedWaveform, pathGains, sampleTimes] = channel.object(paddedWaveform);
 else
     error("Unknown channel type. Use 'AWGN' or a TDL profile");
 
