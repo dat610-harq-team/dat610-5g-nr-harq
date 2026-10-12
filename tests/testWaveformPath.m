@@ -32,3 +32,21 @@ rxSymbols = rxGrid(pdschInd);
 
 %Sammenlign
 maxError = max(abs(rxSymbols - symbols))
+
+%% Støy i bølgen
+
+SNRdB = 5;
+SNR = 10^(SNRdB/10);
+
+ofdmInfo = nrOFDMInfo(carrier);
+N0 = 1/sqrt(2*double(ofdmInfo.Nfft)*SNR);
+
+noise = N0*complex(randn(size(waveform)), randn(size(waveform)));
+rxWaveformNoisy = waveform + noise;
+
+rxGridNoisy = nrOFDMDemodulate(carrier, rxWaveformNoisy);
+rxSymbolsNoisy = rxGridNoisy(pdschInd);
+
+measuredNoiseVar = mean(abs(rxSymbolsNoisy - symbols).^2)
+expectedNoiseVar = 1/SNR
+
