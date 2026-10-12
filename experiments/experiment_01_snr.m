@@ -1,175 +1,296 @@
-%% Experiment 1 - SNR Sweep
-% Owner: Person 1
+function output = experiment_01_snr(mode, overrides)
+%EXPERIMENT_01_SNR Person 1's reproducible SNR study using the shared HARQ engine.
 %
-% Purpose:
-% Study how Signal-to-Noise Ratio (SNR) changes HARQ behavior.
+%   experiment_01_snr
+%       Quick broad pilot: 300 TBs, one seed.
 %
-% This is the first serious experiment run after the smoke/development tests.
-% The settings are still provisional until the group justifies the final
-% parameter choices for the report.
+%   experiment_01_snr("study")
+%       Final-style transition study: 1000 TBs per run, three seeds,
+%       fine 0.25 dB spacing from 6 to 8 dB.
+%
+%   experiment_01_snr("low-snr-pilot")
+%       Small exploratory sweep used only to locate the region where
+%       residual HARQ failures begin.
+%
+%   experiment_01_snr("low-snr-study")
+%       Final-style lower-transition study: 1000 TBs per run, three seeds,
+%       fine 0.25 dB spacing from -1 to 0.5 dB.
+%
+%   experiment_01_snr(mode, overrides)
+%       Override experiment settings, for example:
+%       experiment_01_snr("study",struct("NumTransportBlocks",500))
+%
+% The radio/HARQ implementation is not changed here. This file only controls
+% repeated runs, aggregation, uncertainty reporting, plotting and saving.
 
-repoRoot = fileparts(fileparts(mfilename("fullpath")));
-addpath(genpath(fullfile(repoRoot,"src")));
+    arguments
+        mode (1,1) string {mustBeMember(mode,["quick","study","low-snr-pilot","low-snr-study"])} = "quick"
+        overrides (1,1) struct = struct()
+    end
 
-cfg = defaultConfig();
+    repoRoot = fileparts(fileparts(mfilename("fullpath")));
+    addpath(genpath(fullfile(repoRoot,"src")));
 
-% Larger run for more stable estimates than the 20- and 50-block tests.
-cfg.NumTransportBlocks = 300;
+    cfg = defaultConfig();
 
-% Keep broad coverage, but add finer resolution around the transition region
-% where the earlier development sweep changed sharply.
-snrValues = [2 4 5 5.5 6 6.5 7 7.5 8 8.5 9 10 12];
+    % Experiment-only settings. Keep these separate from the shared link cfg.
+    switch mode
+        case "quick"
+            snrValues = [2 4 5 5.5 6 6.5 7 7.5 8 8.5 9 10 12];
+            seeds = 610;
+            cfg.NumTransportBlocks = 300;
+        case "study"
+            snrValues = 6:0.25:8;
+            seeds = [610 611 612];
+            cfg.NumTransportBlocks = 1000;
+        case "low-snr-pilot"
+            snrValues = [-2 -1 0 1 2 3 4];
+            seeds = 610;
+            cfg.NumTransportBlocks = 200;
+        case "low-snr-study"
+            snrValues = -1:0.25:0.5;
+            seeds = [610 611 612];
+            cfg.NumTransportBlocks = 1000;
+    end
 
-results = cell(1,numel(snrValues));
+    % Optional user overrides without changing the shared default configuration.
+    if isfield(overrides,"SNRdB"), snrValues = overrides.SNRdB; end
+    if isfield(overrides,"Seeds"), seeds = overrides.Seeds; end
+    if isfield(overrides,"NumTransportBlocks")
+        cfg.NumTransportBlocks = overrides.NumTransportBlocks;
+    end
+    if isfield(overrides,"ShowProgress"), cfg.ShowProgress = overrides.ShowProgress; end
+    if isfield(overrides,"ProgressEvery"), cfg.ProgressEvery = overrides.ProgressEvery; end
 
-firstAttemptBLER = zeros(size(snrValues));
-finalFailureRate = zeros(size(snrValues));
-averageTransmissionAttempts = zeros(size(snrValues));
-averageRetransmissionsPerBlock = zeros(size(snrValues));
-harqRecoveredBlocks = zeros(size(snrValues));
-elapsedSeconds = zeros(size(snrValues));
+    allowed = ["SNRdB","Seeds","NumTransportBlocks","ShowProgress","ProgressEvery"];
+    supplied = string(fieldnames(overrides));
+    unknown = setdiff(supplied,allowed);
+    if ~isempty(unknown)
+        error('SNR:UnknownSetting','Unknown experiment setting: %s',strjoin(unknown,", "));
+    end
 
-fprintf("\n5G NR HARQ SNR experiment\n");
-fprintf("Transport blocks per SNR: %d\n",cfg.NumTransportBlocks);
-fprintf("SNR points: %d\n",numel(snrValues));
-fprintf("------------------------------------------------------------\n");
+    validateattributes(snrValues,{'numeric'},{'vector','nonempty','real','finite'});
+    validateattributes(seeds,{'numeric'},{'vector','nonempty','integer','nonnegative','<=',2^32-1});
+    assert(numel(unique(seeds))==numel(seeds),'SNR:Seeds','Seeds must be unique.');
 
-for idx = 1:numel(snrValues)
+    ensureHarqReference();
 
-    scenario.SNRdB = snrValues(idx);
+    environment = struct();
+    environment.MATLAB = version;
+    environment.Release = version("-release");
+    environment.Toolboxes = ver;
+    environment.HARQEntity = which("HARQEntity");
+    environment.SNRDefinition = "PDSCH symbol Es/N0 (dB)";
 
-    fprintf("Running SNR = %g dB ...\n",scenario.SNRdB);
-    drawnow;
+    totalRuns = numel(snrValues)*numel(seeds);
+    results = cell(totalRuns,1);
+    rows = cell(totalRuns,1);
+    runIndex = 0;
 
-    runTimer = tic;
-    results{idx} = runSimulation(cfg,scenario);
-    elapsedSeconds(idx) = toc(runTimer);
+    fprintf("\n");
+    fprintf("+==========================================================+\n");
+    fprintf("|              5G NR HARQ SNR EXPERIMENT                 |\n");
+    fprintf("+==========================================================+\n");
+    fprintf("| Mode             : %-36s |\n",char(mode));
+    fprintf("| SNR points       : %-36d |\n",numel(snrValues));
+    fprintf("| Seeds            : %-36d |\n",numel(seeds));
+    fprintf("| Total runs       : %-36d |\n",totalRuns);
+    fprintf("| TBs per run      : %-36d |\n",cfg.NumTransportBlocks);
+    fprintf("| HARQ processes   : %-36d |\n",cfg.NHARQProcesses);
+    fprintf("| RV sequence      : [%-33s] |\n",strtrim(num2str(cfg.RVSequence)));
+    fprintf("| Modulation       : %-36s |\n",char(cfg.Modulation));
+    fprintf("| Code rate        : %-36.3f |\n",cfg.TargetCodeRate);
+    fprintf("| SCS              : %-32g kHz |\n",cfg.SubcarrierSpacing);
+    fprintf("+----------------------------------------------------------+\n");
 
-    raw = results{idx}.raw;
+    % Unique output folder so study runs never overwrite earlier evidence.
+    dataRoot = fullfile(repoRoot,"results","data");
+    figureRoot = fullfile(repoRoot,"results","figures");
+    if ~isfolder(dataRoot), mkdir(dataRoot); end
+    if ~isfolder(figureRoot), mkdir(figureRoot); end
 
-    firstAttemptFailures = sum(raw.firstAttemptBlockError);
+    stamp = char(datetime("now","Format","yyyyMMdd_HHmmss"));
+    runName = sprintf("snr_%s_%s",char(mode),stamp);
+    runDir = fullfile(dataRoot,runName);
+    figureDir = fullfile(figureRoot,runName);
+    mkdir(runDir);
+    mkdir(figureDir);
 
-    firstAttemptBLER(idx) = ...
-        firstAttemptFailures / raw.totalTransportBlocks;
+    save(fullfile(runDir,"manifest.mat"),"cfg","snrValues","seeds","mode","environment");
 
-    finalFailureRate(idx) = ...
-        raw.finalFailedTransportBlocks / raw.totalTransportBlocks;
+    for snrIndex = 1:numel(snrValues)
+        for seedIndex = 1:numel(seeds)
+            runIndex = runIndex+1;
 
-    averageTransmissionAttempts(idx) = ...
-        raw.totalTransmissionAttempts / raw.totalTransportBlocks;
+            scenario = struct( ...
+                "SNRdB",snrValues(snrIndex), ...
+                "Seed",seeds(seedIndex), ...
+                "RVSequence",cfg.RVSequence);
 
-    averageRetransmissionsPerBlock(idx) = ...
-        raw.totalRetransmissions / raw.totalTransportBlocks;
+            fprintf("\n>> Run %d/%d | SNR %g dB | seed %d\n", ...
+                runIndex,totalRuns,scenario.SNRdB,scenario.Seed);
+            fprintf("------------------------------------------------------------\n");
+            drawnow;
 
-    % Blocks that failed on the first attempt but eventually succeeded.
-    harqRecoveredBlocks(idx) = ...
-        firstAttemptFailures - raw.finalFailedTransportBlocks;
+            runTimer = tic;
+            result = runSimulation(cfg,scenario);
+            runtimeSeconds = toc(runTimer);
+            result.runtimeSeconds = runtimeSeconds;
 
-    fprintf("  first-attempt failures            : %d\n",firstAttemptFailures);
-    fprintf("  first-attempt BLER                : %6.2f%%\n", ...
-        firstAttemptBLER(idx)*100);
-    fprintf("  HARQ-recovered blocks             : %d\n", ...
-        harqRecoveredBlocks(idx));
-    fprintf("  final HARQ failure rate           : %6.2f%%\n", ...
-        finalFailureRate(idx)*100);
-    fprintf("  average transmission attempts     : %.3f\n", ...
-        averageTransmissionAttempts(idx));
-    fprintf("  average retransmissions per block : %.3f\n", ...
-        averageRetransmissionsPerBlock(idx));
-    fprintf("  runtime                           : %.1f s\n\n", ...
-        elapsedSeconds(idx));
+            m = result.metrics;
+            row = struct( ...
+                "configuration","Full HARQ [0 2 3 1]", ...
+                "snrDb",scenario.SNRdB, ...
+                "seed",scenario.Seed, ...
+                "maxAttempts",numel(scenario.RVSequence), ...
+                "runtimeSeconds",runtimeSeconds);
+
+            metricNames = fieldnames(m);
+            for j = 1:numel(metricNames)
+                row.(metricNames{j}) = m.(metricNames{j});
+            end
+
+            rows{runIndex} = struct2table(row);
+            results{runIndex} = result;
+
+            % Use character vectors for the filename on older MATLAB releases.
+            % With a string-format sprintf, R2022a can keep "stem" as a string;
+            % [stem '.mat'] then becomes a two-element string array, which save
+            % rejects because the filename must be one text scalar.
+            stem = sprintf('snr_%+05.2f_seed_%d',scenario.SNRdB,scenario.Seed);
+            stem = strrep(stem,'.','p');
+            stem = strrep(stem,'+','pos');
+            stem = strrep(stem,'-','neg');
+            resultFile = fullfile(char(runDir),[stem '.mat']);
+            save(resultFile,'result');
+
+            fprintf("\n  RESULT\n");
+            fprintf("  +------------------------------------------------------+\n");
+            fprintf("  | First-transmission BLER : %8.3f                    |\n",m.firstTransmissionBLER);
+            fprintf("  | Final residual BLER     : %8.3f                    |\n",m.finalResidualBLER);
+            fprintf("  | Delivered TBs           : %4d / %-4d               |\n", ...
+                m.deliveredTransportBlocks,m.observedTransportBlocks);
+            fprintf("  | Goodput                 : %8.3f Mbit/s             |\n",m.goodputBitsPerSecond/1e6);
+            fprintf("  | Mean attempts           : %8.3f                    |\n",m.meanAttemptsPerDeliveredTb);
+            fprintf("  | Mean retransmissions    : %8.3f                    |\n",m.meanRetransmissionsPerDeliveredTb);
+            fprintf("  | Mean delivery latency   : %8.3f slots              |\n",m.meanDeliveryLatencySlots);
+            fprintf("  | MATLAB runtime          : %8.1f s                  |\n",runtimeSeconds);
+            fprintf("  +------------------------------------------------------+\n");
+        end
+    end
+
+    perRun = vertcat(rows{:});
+    summary = summarizeHarqRuns(perRun);
+
+    % Seed-to-seed variability for continuous metrics. Reliability uncertainty
+    % remains the pooled Wilson 95%% interval from summarizeHarqRuns.
+    snrs = summary.snrDb;
+    meanGoodputAcrossSeeds = NaN(height(summary),1);
+    stdGoodputAcrossSeeds = NaN(height(summary),1);
+    meanLatencyAcrossSeeds = NaN(height(summary),1);
+    stdLatencyAcrossSeeds = NaN(height(summary),1);
+    meanRetxAcrossSeeds = NaN(height(summary),1);
+    stdRetxAcrossSeeds = NaN(height(summary),1);
+
+    for i = 1:height(summary)
+        r = perRun(perRun.snrDb==snrs(i),:);
+        g = r.goodputBitsPerSecond/1e6;
+        meanGoodputAcrossSeeds(i) = mean(g);
+        stdGoodputAcrossSeeds(i) = std(g,0);
+        meanLatencyAcrossSeeds(i) = mean(r.meanDeliveryLatencySlots,'omitnan');
+        stdLatencyAcrossSeeds(i) = std(r.meanDeliveryLatencySlots,0,'omitnan');
+        meanRetxAcrossSeeds(i) = mean(r.meanRetransmissionsPerDeliveredTb,'omitnan');
+        stdRetxAcrossSeeds(i) = std(r.meanRetransmissionsPerDeliveredTb,0,'omitnan');
+    end
+
+    summary.meanGoodputAcrossSeeds = meanGoodputAcrossSeeds;
+    summary.stdGoodputAcrossSeeds = stdGoodputAcrossSeeds;
+    summary.meanLatencyAcrossSeeds = meanLatencyAcrossSeeds;
+    summary.stdLatencyAcrossSeeds = stdLatencyAcrossSeeds;
+    summary.meanRetxAcrossSeeds = meanRetxAcrossSeeds;
+    summary.stdRetxAcrossSeeds = stdRetxAcrossSeeds;
+
+    writetable(perRun,fullfile(runDir,"per_run.csv"));
+    writetable(summary,fullfile(runDir,"summary.csv"));
+    save(fullfile(runDir,"summary.mat"), ...
+        "cfg","snrValues","seeds","mode","environment","perRun","summary");
+
+    % Figure 1: reliability with 95% Wilson confidence intervals.
+    f1 = figure;
+    errorbar(summary.snrDb,summary.firstTransmissionBLER, ...
+        summary.firstTransmissionBLER-summary.firstBLERLow95, ...
+        summary.firstBLERHigh95-summary.firstTransmissionBLER, ...
+        "-o","LineWidth",1.4);
+    hold on;
+    errorbar(summary.snrDb,summary.finalResidualBLER, ...
+        summary.finalResidualBLER-summary.finalBLERLow95, ...
+        summary.finalBLERHigh95-summary.finalResidualBLER, ...
+        "-s","LineWidth",1.4);
+    hold off;
+    grid on;
+    xlabel("PDSCH symbol E_s/N_0 (dB)");
+    ylabel("Block error rate");
+    ylim([0 1]);
+    legend("First transmission","After HARQ","Location","best");
+
+    % Figure 2: goodput. Error bars show seed-to-seed standard deviation.
+    f2 = figure;
+    errorbar(summary.snrDb,summary.meanGoodputAcrossSeeds, ...
+        summary.stdGoodputAcrossSeeds,"-o","LineWidth",1.4);
+    grid on;
+    xlabel("PDSCH symbol E_s/N_0 (dB)");
+    ylabel("Goodput (Mbit/s)");
+
+    % Figure 3: retransmissions. Error bars show seed-to-seed std.
+    f3 = figure;
+    errorbar(summary.snrDb,summary.meanRetxAcrossSeeds, ...
+        summary.stdRetxAcrossSeeds,"-o","LineWidth",1.4);
+    grid on;
+    xlabel("PDSCH symbol E_s/N_0 (dB)");
+    ylabel("Mean retransmissions per delivered TB");
+
+    % Figure 4: delivery scheduling delay. Error bars show seed-to-seed std.
+    f4 = figure;
+    errorbar(summary.snrDb,summary.meanLatencyAcrossSeeds, ...
+        summary.stdLatencyAcrossSeeds,"-o","LineWidth",1.4);
+    grid on;
+    xlabel("PDSCH symbol E_s/N_0 (dB)");
+    ylabel("Mean delivery latency (slots)");
+
+    exportgraphics(f1,fullfile(figureDir,"bler_vs_snr.png"),"Resolution",180);
+    exportgraphics(f2,fullfile(figureDir,"goodput_vs_snr.png"),"Resolution",180);
+    exportgraphics(f3,fullfile(figureDir,"retransmissions_vs_snr.png"),"Resolution",180);
+    exportgraphics(f4,fullfile(figureDir,"latency_vs_snr.png"),"Resolution",180);
+    savefig(f1,fullfile(figureDir,"bler_vs_snr.fig"));
+    savefig(f2,fullfile(figureDir,"goodput_vs_snr.fig"));
+    savefig(f3,fullfile(figureDir,"retransmissions_vs_snr.fig"));
+    savefig(f4,fullfile(figureDir,"latency_vs_snr.fig"));
+
+    fprintf("\n");
+    fprintf("+==========================================================+\n");
+    fprintf("|                    EXPERIMENT COMPLETE                   |\n");
+    fprintf("+==========================================================+\n");
+    fprintf("Data    : %s\n",runDir);
+    fprintf("Figures : %s\n",figureDir);
+    if mode == "quick"
+        fprintf("QUICK PILOT: use study mode for final statistical evidence.\n");
+    elseif mode == "low-snr-pilot"
+        fprintf("LOW-SNR PILOT: use this only to locate the residual-failure region.\n");
+    elseif mode == "low-snr-study"
+        fprintf("LOW-SNR STUDY: pooled BLER uses Wilson 95%% intervals around the HARQ recovery boundary.\n");
+    else
+        fprintf("STUDY: pooled BLER uses Wilson 95%% intervals; other error bars show seed variability.\n");
+    end
+
+    output = struct( ...
+        "cfg",cfg, ...
+        "mode",mode, ...
+        "snrValues",snrValues, ...
+        "seeds",seeds, ...
+        "environment",environment, ...
+        "perRun",perRun, ...
+        "summary",summary, ...
+        "results",{results}, ...
+        "dataDirectory",runDir, ...
+        "figureDirectory",figureDir);
 end
-
-%% Create summary table
-
-summaryTable = table( ...
-    snrValues(:), ...
-    firstAttemptBLER(:), ...
-    finalFailureRate(:), ...
-    harqRecoveredBlocks(:), ...
-    averageTransmissionAttempts(:), ...
-    averageRetransmissionsPerBlock(:), ...
-    elapsedSeconds(:), ...
-    'VariableNames',{ ...
-        'SNRdB', ...
-        'FirstAttemptBLER', ...
-        'FinalHARQFailureRate', ...
-        'HARQRecoveredBlocks', ...
-        'AverageTransmissionAttempts', ...
-        'AverageRetransmissionsPerBlock', ...
-        'RuntimeSeconds'});
-
-disp(summaryTable);
-
-%% Prepare output directories
-
-dataDirectory = fullfile(repoRoot,"results","data");
-figureDirectory = fullfile(repoRoot,"results","figures");
-
-if ~exist(dataDirectory,"dir")
-    mkdir(dataDirectory);
-end
-
-if ~exist(figureDirectory,"dir")
-    mkdir(figureDirectory);
-end
-
-%% Plot 1 - First-attempt BLER and final HARQ failure rate
-
-figure1 = figure;
-plot(snrValues,firstAttemptBLER,"-o","LineWidth",1.5);
-hold on;
-plot(snrValues,finalFailureRate,"-s","LineWidth",1.5);
-hold off;
-grid on;
-xlabel("Signal-to-Noise Ratio (dB)");
-ylabel("Rate");
-title("Block Failure Behavior vs SNR");
-legend("First-attempt BLER","Final HARQ failure rate","Location","best");
-
-%% Plot 2 - Average transmission attempts
-
-figure2 = figure;
-plot(snrValues,averageTransmissionAttempts,"-o","LineWidth",1.5);
-grid on;
-xlabel("Signal-to-Noise Ratio (dB)");
-ylabel("Average transmission attempts per transport block");
-title("Average HARQ Transmission Attempts vs SNR");
-
-%% Plot 3 - Average retransmissions
-
-figure3 = figure;
-plot(snrValues,averageRetransmissionsPerBlock,"-o","LineWidth",1.5);
-grid on;
-xlabel("Signal-to-Noise Ratio (dB)");
-ylabel("Average retransmissions per transport block");
-title("Average HARQ Retransmissions vs SNR");
-
-%% Save experiment outputs
-
-save(fullfile(dataDirectory,"experiment_01_snr_results.mat"), ...
-    "snrValues", ...
-    "results", ...
-    "firstAttemptBLER", ...
-    "finalFailureRate", ...
-    "harqRecoveredBlocks", ...
-    "averageTransmissionAttempts", ...
-    "averageRetransmissionsPerBlock", ...
-    "elapsedSeconds", ...
-    "summaryTable", ...
-    "cfg");
-
-writetable(summaryTable, ...
-    fullfile(dataDirectory,"experiment_01_snr_summary.csv"));
-
-saveas(figure1,fullfile(figureDirectory,"experiment_01_bler_vs_snr.png"));
-saveas(figure2,fullfile(figureDirectory,"experiment_01_attempts_vs_snr.png"));
-saveas(figure3,fullfile(figureDirectory,"experiment_01_retransmissions_vs_snr.png"));
-
-fprintf("\nSaved raw data, CSV summary, and figures under results/.\n");
-
-% Before treating these as final report results:
-% - inspect curve stability
-% - decide whether 300 blocks are sufficient
-% - justify final SNR range from literature/reference behavior
-% - confirm final metric definitions with Person 2
