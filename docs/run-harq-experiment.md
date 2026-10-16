@@ -149,8 +149,8 @@ Summaries pool counts across seeds and weight conditional means by delivered
 TBs. Reliability columns include 95% Wilson binomial intervals. These are
 appropriate for independent TB outcomes in this fixed AWGN model; reassess
 uncertainty estimation before reusing it with time-correlated fading. Zero
-observed failures has a nonzero upper confidence bound. Other plots show point
-estimates, not confidence intervals.
+observed failures has a nonzero upper confidence bound. Goodput shows point
+estimates; mean retransmissions uses the conservative intervals described below.
 
 ## Saved files and inspection
 
@@ -164,8 +164,8 @@ matching figure folder below `results/figures/`. Existing runs are retained.
 - `config##_snr##_seed##_events.csv`: one row per TB transmission attempt.
 - `per_run.csv`: individual-seed metrics.
 - `summary.csv` and `summary.mat`: pooled metrics and reliability intervals.
-- `harq_comparison.png` and `.fig`: reliability, goodput, retransmissions,
-  and delivery-attempt plots. Quick plots are labeled as quick.
+- `harq_comparison.png` and `.fig`: reliability, goodput, and mean
+  retransmissions with confidence intervals. Quick plots are labeled as quick.
 
 Inspect one TB or its attempt distribution:
 
@@ -204,6 +204,25 @@ and duration from the waveform reference, then call `calculateMetrics(raw)`.
 Person 3 should integrate TDL at the waveform/channel-estimation level; do not
 claim TDL results from this AWGN symbol experiment. The other HARQ placeholder
 files are not called by this runner.
+
+## Mean-retransmission confidence intervals
+
+The HARQ figure has four panels in a 2-by-2 layout: final BLER, goodput,
+mean retransmissions per delivered block with pointwise 95% confidence intervals,
+and retransmission resource share. The fourth panel measures retry attempts
+divided by all transmission attempts, including those for ultimately dropped
+blocks. It replaces the redundant total-attempts panel.
+
+For n delivered blocks and a maximum of R retries, the two-sided Hoeffding
+interval is mean +/- R*sqrt(log(40)/(2*n)), clipped to [0,R]. These conservative
+intervals assume independent block outcomes in the fixed AWGN model. They
+measure uncertainty in the conditional mean, not individual-block variability
+or simultaneous coverage across all SNR points. Constant samples retain
+uncertainty unless retries are disabled. No deliveries gives undefined bounds.
+Reassess independence before using this method with correlated fading.
+
+Saved per_run.csv tables with maxAttempts can be summarized again without
+rerunning the simulation. Tables lacking maxAttempts get undefined bounds.
 
 ## Sources
 
