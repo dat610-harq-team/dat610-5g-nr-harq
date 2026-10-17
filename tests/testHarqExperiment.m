@@ -126,7 +126,20 @@ function testPooledSummary(testCase)
         'meanRetransmissionsPerDeliveredTb','meanDeliveryLatencySlots', ...
         'deliveredTransportBlockBits','elapsedSeconds','retransmittedTransportBlocks', ...
         'retransmissionAttempts','transmissionAttempts'});
+    r.maxAttempts = [2;2];
     s = summarizeHarqRuns(r);
+    verifyEqual(testCase,s.meanRetxLow95,0);
+    verifyEqual(testCase,s.meanRetxHigh95,1);
+    r.meanRetransmissionsPerDeliveredTb(2) = 0;
+    constant = summarizeHarqRuns(r);
+    verifyGreaterThan(testCase,constant.meanRetxHigh95,0);
+    r.maxAttempts(:) = 1;
+    noRetry = summarizeHarqRuns(r);
+    verifyEqual(testCase,noRetry.meanRetxHigh95,0);
+    r.deliveredTransportBlocks(:) = 0;
+    empty = summarizeHarqRuns(r);
+    verifyTrue(testCase,isnan(empty.meanRetxLow95));
+    verifyTrue(testCase,isnan(empty.meanRetxHigh95));
     verifyEqual(testCase,s.finalResidualBLER,0.5);
     verifyEqual(testCase,s.meanRetransmissionsPerDeliveredTb,0.5);
     verifyEqual(testCase,s.meanDeliveryLatencySlots,9);

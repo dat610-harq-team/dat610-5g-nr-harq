@@ -12,8 +12,8 @@ We are investigating how 5G NR HARQ affects reliability and performance under ch
 
 ```matlab
 addpath('experiments');
-output = experiment_02_harq;          % Quick AWGN pilot
-% output = experiment_02_harq("study"); % Larger multi-seed sweep
+% output = experiment_02_harq;          % Quick AWGN pilot
+output = experiment_02_harq("study");   % Larger multi-seed sweep
 ```
 
 See the [HARQ run guide](docs/run-harq-experiment.md) for settings, outputs, metric definitions, assumptions, and tests. It adapts the official MathWorks transport-channel example and reuses its HARQ helper. The [team plan](docs/team-plan.md), [original experiment questions](docs/experiment-design.md), and [initial plan](docs/initial-plan.md) describe the wider group project.
