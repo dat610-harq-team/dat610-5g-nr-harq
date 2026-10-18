@@ -70,6 +70,7 @@ function result = runHarqLinkSimulation(cfg, scenario)
     payloadStream = RandStream('mrg32k3a','Seed',scenario.Seed);
     noiseStream = RandStream('mrg32k3a','Seed',mod(scenario.Seed+100000,2^32));
     noiseVariance = 10^(-scenario.SNRdB/10); % E[abs(complex noise)^2]
+    
 
     useWaveform = isfield(scenario, 'Channel');
     if useWaveform
@@ -78,6 +79,7 @@ function result = runHarqLinkSimulation(cfg, scenario)
         chCfg.SampleRate = ofdmInfo.SampleRate;
         chCfg.NTxAnts = 1;
         chCfg.NRxAnts = 1;
+        chCfg.Seed = scenario.Seed;
         ch = createChannel(chCfg);
     end
 
@@ -132,6 +134,7 @@ function result = runHarqLinkSimulation(cfg, scenario)
         coded = encoder(pdsch.Modulation,1,pdschInfo.G,rv,pid);
         symbols = nrPDSCH(carrier,pdsch,coded);
         noiseStream.Substream = (tbId-1)*4+attempt;
+
         if useWaveform
             llrs = waveformChannelLink(carrier, pdsch, symbols, ch, noiseVariance, noiseStream);
         else

@@ -13,7 +13,7 @@ function channel = createChannel(cfg)
 if strcmpi(cfg.channelType, 'AWGN')
     channel.type = cfg.channelType;
     channel.object = [];
-        
+
 elseif startsWith(cfg.channelType, 'TDL', 'IgnoreCase', true)
     tdl = nrTDLChannel;
     tdl.NumTransmitAntennas = cfg.NTxAnts;
@@ -23,6 +23,9 @@ elseif startsWith(cfg.channelType, 'TDL', 'IgnoreCase', true)
     tdl.DelaySpread = cfg.DelaySpread;
     tdl.MaximumDopplerShift = cfg.MaximumDopplerShift;
     tdl.SampleRate = cfg.SampleRate;
+    if isfield(cfg, 'Seed')
+        tdl.Seed = cfg.Seed;
+    end
     channel.type = cfg.channelType;
     channel.object = tdl;
 
