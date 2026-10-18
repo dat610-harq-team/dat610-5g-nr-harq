@@ -9,7 +9,6 @@ pdsch = nrPDSCHConfig;
 pdsch.Modulation = cfg.Modulation;
 pdsch.NumLayers = cfg.NumLayers;
 pdsch.PRBSet = 0:cfg.NSizeGrid-1;
-%pdsch.PRBSet = cfg.PRBSet;
 
 [pdschInd, pdschInfo] = nrPDSCHIndices(carrier, pdsch);
 
@@ -94,3 +93,20 @@ noiseVar = 1/SNR;
 
 %Hvor langt unna originalen er de rettede symbolene?
 errTDL = mean(abs(eqSymTDL - symbols).^2)
+
+
+%% Test av waveformChannelLink
+noiseStream = RandStream('mrg32k3a', 'Seed', 1);
+noiseVariance = 10^(-40/10);   % 40 dB, nesten ingen støy
+
+% AWGN
+chCfg.channelType = 'AWGN';
+chAWGN = createChannel(chCfg);
+llrsAWGN = waveformChannelLink(carrier, pdsch, symbols, chAWGN, noiseVariance, noiseStream);
+bitErrorsAWGN = sum((llrsAWGN{1} < 0) ~= bits)
+
+% TDL
+chCfg.channelType = 'TDL-C';
+chTDL = createChannel(chCfg);
+llrsTDL = waveformChannelLink(carrier, pdsch, symbols, chTDL, noiseVariance, noiseStream);
+bitErrorsTDL = sum((llrsTDL{1} < 0) ~= bits)
