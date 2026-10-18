@@ -1,7 +1,7 @@
 clear;
 ensureHarqReference();
 cfg = defaultConfig();
-cfg.NumTransportBlocks = 100;
+cfg.NumTransportBlocks = 1000;
 
 scenario.SNRdB = 7;
 scenario.Seed = 610;
@@ -12,7 +12,7 @@ resultOld = runHarqLinkSimulation(cfg, scenario);
 disp('Symbol-AWGN:'); disp(resultOld.metrics)
 
 % Med Channel-felt: din bølge-vei med TDL-C
-scenario.Channel.channelType = 'TDL-C';
+scenario.Channel.channelType = 'AWGN';
 scenario.Channel.DelaySpread = 300e-9;
 scenario.Channel.MaximumDopplerShift = 5;
 resultTDL = runHarqLinkSimulation(cfg, scenario);

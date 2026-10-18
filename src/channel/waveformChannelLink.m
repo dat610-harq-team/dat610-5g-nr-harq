@@ -46,7 +46,8 @@ function llrs = waveformChannelLink(carrier, pdsch, symbols, ch, noiseVariance, 
     [rxSym, Hpdsch] = nrExtractResources(pdschInd, rxGrid, H);
 
     %Utjevning: rett opp det kanalen gjorde
-    [eqSym, csi] = nrEqualizeMMSE(rxSym, Hpdsch, noiseVariance);
+    eqSym = rxSym ./ Hpdsch;
+    csi = abs(Hpdsch).^2;
 
     %Gjør om til LLR-er, vektet med hvor pålitelig hvert symbol er
     [llrs, rxSymbols] = nrPDSCHDecode(carrier, pdsch, eqSym, noiseVariance); %LLR-ene lages
