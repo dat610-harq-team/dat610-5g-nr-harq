@@ -215,52 +215,94 @@ function output = experiment_01_snr(mode, overrides)
     save(fullfile(runDir,"summary.mat"), ...
         "cfg","snrValues","seeds","mode","environment","perRun","summary");
 
+    % ------------------------------------------------------------
+    % Report figures
+    % ------------------------------------------------------------
+    % Format figures for the IEEE report without changing the data:
+    % white background, readable axes, no embedded titles, and a light
+    % highlight over the SNR region that is most important in each mode.
+
+    [highlightRange,highlightLabel] = snrHighlightRegion(mode);
+
     % Figure 1: reliability with 95% Wilson confidence intervals.
-    f1 = figure;
-    errorbar(summary.snrDb,summary.firstTransmissionBLER, ...
+    f1 = figure("Color","w");
+    ax1 = axes(f1);
+    hold(ax1,"on");
+
+    errorbar(ax1,summary.snrDb,summary.firstTransmissionBLER, ...
         summary.firstTransmissionBLER-summary.firstBLERLow95, ...
         summary.firstBLERHigh95-summary.firstTransmissionBLER, ...
-        "-o","LineWidth",1.4);
-    hold on;
-    errorbar(summary.snrDb,summary.finalResidualBLER, ...
+        "-o","LineWidth",1.8,"MarkerSize",6);
+
+    errorbar(ax1,summary.snrDb,summary.finalResidualBLER, ...
         summary.finalResidualBLER-summary.finalBLERLow95, ...
         summary.finalBLERHigh95-summary.finalResidualBLER, ...
-        "-s","LineWidth",1.4);
-    hold off;
-    grid on;
-    xlabel("PDSCH symbol E_s/N_0 (dB)");
-    ylabel("Block error rate");
-    ylim([0 1]);
-    legend("First transmission","After HARQ","Location","best");
+        "-s","LineWidth",1.8,"MarkerSize",6);
+
+    xlabel(ax1,"PDSCH symbol E_s/N_0 (dB)");
+    ylabel(ax1,"Block error rate");
+    ylim(ax1,[0 1]);
+    applyReportStyle(ax1);
+    addSNRHighlight(ax1,highlightRange,highlightLabel);
+    legend(ax1,"First transmission","After HARQ", ...
+        "Location","best","Box","on");
+    hold(ax1,"off");
 
     % Figure 2: goodput. Error bars show seed-to-seed standard deviation.
-    f2 = figure;
-    errorbar(summary.snrDb,summary.meanGoodputAcrossSeeds, ...
-        summary.stdGoodputAcrossSeeds,"-o","LineWidth",1.4);
-    grid on;
-    xlabel("PDSCH symbol E_s/N_0 (dB)");
-    ylabel("Goodput (Mbit/s)");
+    f2 = figure("Color","w");
+    ax2 = axes(f2);
+    hold(ax2,"on");
+
+    errorbar(ax2,summary.snrDb,summary.meanGoodputAcrossSeeds, ...
+        summary.stdGoodputAcrossSeeds,"-o", ...
+        "LineWidth",1.8,"MarkerSize",6);
+
+    xlabel(ax2,"PDSCH symbol E_s/N_0 (dB)");
+    ylabel(ax2,"Goodput (Mbit/s)");
+    applyReportStyle(ax2);
+    addSNRHighlight(ax2,highlightRange,highlightLabel);
+    hold(ax2,"off");
 
     % Figure 3: retransmissions. Error bars show seed-to-seed std.
-    f3 = figure;
-    errorbar(summary.snrDb,summary.meanRetxAcrossSeeds, ...
-        summary.stdRetxAcrossSeeds,"-o","LineWidth",1.4);
-    grid on;
-    xlabel("PDSCH symbol E_s/N_0 (dB)");
-    ylabel("Mean retransmissions per delivered TB");
+    f3 = figure("Color","w");
+    ax3 = axes(f3);
+    hold(ax3,"on");
+
+    errorbar(ax3,summary.snrDb,summary.meanRetxAcrossSeeds, ...
+        summary.stdRetxAcrossSeeds,"-o", ...
+        "LineWidth",1.8,"MarkerSize",6);
+
+    xlabel(ax3,"PDSCH symbol E_s/N_0 (dB)");
+    ylabel(ax3,"Mean retransmissions per delivered TB");
+    applyReportStyle(ax3);
+    addSNRHighlight(ax3,highlightRange,highlightLabel);
+    hold(ax3,"off");
 
     % Figure 4: delivery scheduling delay. Error bars show seed-to-seed std.
-    f4 = figure;
-    errorbar(summary.snrDb,summary.meanLatencyAcrossSeeds, ...
-        summary.stdLatencyAcrossSeeds,"-o","LineWidth",1.4);
-    grid on;
-    xlabel("PDSCH symbol E_s/N_0 (dB)");
-    ylabel("Mean delivery latency (slots)");
+    f4 = figure("Color","w");
+    ax4 = axes(f4);
+    hold(ax4,"on");
 
-    exportgraphics(f1,fullfile(figureDir,"bler_vs_snr.png"),"Resolution",180);
-    exportgraphics(f2,fullfile(figureDir,"goodput_vs_snr.png"),"Resolution",180);
-    exportgraphics(f3,fullfile(figureDir,"retransmissions_vs_snr.png"),"Resolution",180);
-    exportgraphics(f4,fullfile(figureDir,"latency_vs_snr.png"),"Resolution",180);
+    errorbar(ax4,summary.snrDb,summary.meanLatencyAcrossSeeds, ...
+        summary.stdLatencyAcrossSeeds,"-o", ...
+        "LineWidth",1.8,"MarkerSize",6);
+
+    xlabel(ax4,"PDSCH symbol E_s/N_0 (dB)");
+    ylabel(ax4,"Mean delivery delay (slots)");
+    applyReportStyle(ax4);
+    addSNRHighlight(ax4,highlightRange,highlightLabel);
+    hold(ax4,"off");
+
+    % Export report-ready PNGs at 300 dpi with an explicit white background.
+    exportgraphics(f1,fullfile(figureDir,"bler_vs_snr.png"), ...
+        "Resolution",300,"BackgroundColor","white");
+    exportgraphics(f2,fullfile(figureDir,"goodput_vs_snr.png"), ...
+        "Resolution",300,"BackgroundColor","white");
+    exportgraphics(f3,fullfile(figureDir,"retransmissions_vs_snr.png"), ...
+        "Resolution",300,"BackgroundColor","white");
+    exportgraphics(f4,fullfile(figureDir,"latency_vs_snr.png"), ...
+        "Resolution",300,"BackgroundColor","white");
+
     savefig(f1,fullfile(figureDir,"bler_vs_snr.fig"));
     savefig(f2,fullfile(figureDir,"goodput_vs_snr.fig"));
     savefig(f3,fullfile(figureDir,"retransmissions_vs_snr.fig"));
@@ -294,3 +336,72 @@ function output = experiment_01_snr(mode, overrides)
         "dataDirectory",runDir, ...
         "figureDirectory",figureDir);
 end
+
+function applyReportStyle(ax)
+%APPLYREPORTSTYLE Use a simple report-friendly MATLAB figure style.
+
+    ax.Color = "white";
+    ax.XColor = "black";
+    ax.YColor = "black";
+    ax.FontName = "Helvetica";
+    ax.FontSize = 11;
+    ax.LineWidth = 1.0;
+    ax.Box = "on";
+    ax.XGrid = "on";
+    ax.YGrid = "on";
+    ax.GridAlpha = 0.18;
+    ax.MinorGridAlpha = 0.10;
+    ax.Layer = "top";
+end
+
+function [range,label] = snrHighlightRegion(mode)
+%SNRHIGHLIGHTREGION Return the important SNR region for each experiment mode.
+
+    switch mode
+        case "quick"
+            range = [6.5 7.5];
+            label = "First-transmission transition";
+        case "study"
+            range = [6.5 7.5];
+            label = "First-transmission transition";
+        case "low-snr-pilot"
+            range = [-1 0];
+            label = "HARQ recovery transition";
+        case "low-snr-study"
+            range = [-0.75 0];
+            label = "HARQ recovery transition";
+        otherwise
+            range = [];
+            label = "";
+    end
+end
+
+function addSNRHighlight(ax,range,label)
+%ADDSNRHIGHLIGHT Lightly shade the important SNR region.
+
+    if isempty(range)
+        return;
+    end
+
+    yl = ylim(ax);
+
+    region = patch(ax, ...
+        [range(1) range(2) range(2) range(1)], ...
+        [yl(1) yl(1) yl(2) yl(2)], ...
+        [0.75 0.75 0.75], ...
+        "FaceAlpha",0.16, ...
+        "EdgeColor","none", ...
+        "HandleVisibility","off");
+
+    uistack(region,"bottom");
+
+    text(ax,mean(range),yl(2)-0.04*(yl(2)-yl(1)),label, ...
+        "HorizontalAlignment","center", ...
+        "VerticalAlignment","top", ...
+        "FontSize",9, ...
+        "Color",[0.25 0.25 0.25], ...
+        "HandleVisibility","off");
+
+    ylim(ax,yl);
+end
+
