@@ -219,10 +219,10 @@ function output = experiment_01_snr(mode, overrides)
     % Report figures
     % ------------------------------------------------------------
     % Format figures for the IEEE report without changing the data:
-    % white background, readable axes, no embedded titles, and a light
-    % highlight over the SNR region that is most important in each mode.
-
-    [highlightRange,highlightLabel] = snrHighlightRegion(mode);
+    % white background, accessible line/marker contrast, subtle grids,
+    % and no embedded titles or annotations.
+    blue = [0.07 0.36 0.63];
+    orange = [0.83 0.35 0.13];
 
     % Figure 1: reliability with 95% Wilson confidence intervals.
     f1 = figure("Color","w");
@@ -232,20 +232,24 @@ function output = experiment_01_snr(mode, overrides)
     errorbar(ax1,summary.snrDb,summary.firstTransmissionBLER, ...
         summary.firstTransmissionBLER-summary.firstBLERLow95, ...
         summary.firstBLERHigh95-summary.firstTransmissionBLER, ...
-        "-o","LineWidth",1.8,"MarkerSize",6);
+        "-o","Color",blue,"MarkerFaceColor","white", ...
+        "LineWidth",1.8,"MarkerSize",5.5,"CapSize",5);
 
     errorbar(ax1,summary.snrDb,summary.finalResidualBLER, ...
         summary.finalResidualBLER-summary.finalBLERLow95, ...
         summary.finalBLERHigh95-summary.finalResidualBLER, ...
-        "-s","LineWidth",1.8,"MarkerSize",6);
+        "-s","Color",orange,"MarkerFaceColor","white", ...
+        "LineWidth",1.8,"MarkerSize",5.5,"CapSize",5);
 
     xlabel(ax1,"PDSCH symbol E_s/N_0 (dB)");
     ylabel(ax1,"Block error rate");
     ylim(ax1,[0 1]);
     applyReportStyle(ax1);
-    addSNRHighlight(ax1,highlightRange,highlightLabel);
-    legend(ax1,"First transmission","After HARQ", ...
+    lgd = legend(ax1,"First transmission","After HARQ", ...
         "Location","best","Box","on");
+    lgd.Color = "white";
+    lgd.EdgeColor = [0.83 0.85 0.87];
+    lgd.FontSize = 10;
     hold(ax1,"off");
 
     % Figure 2: goodput. Error bars show seed-to-seed standard deviation.
@@ -255,12 +259,12 @@ function output = experiment_01_snr(mode, overrides)
 
     errorbar(ax2,summary.snrDb,summary.meanGoodputAcrossSeeds, ...
         summary.stdGoodputAcrossSeeds,"-o", ...
-        "LineWidth",1.8,"MarkerSize",6);
+        "Color",blue,"MarkerFaceColor","white", ...
+        "LineWidth",1.8,"MarkerSize",5.5,"CapSize",5);
 
     xlabel(ax2,"PDSCH symbol E_s/N_0 (dB)");
     ylabel(ax2,"Goodput (Mbit/s)");
     applyReportStyle(ax2);
-    addSNRHighlight(ax2,highlightRange,highlightLabel);
     hold(ax2,"off");
 
     % Figure 3: retransmissions. Error bars show seed-to-seed std.
@@ -270,12 +274,12 @@ function output = experiment_01_snr(mode, overrides)
 
     errorbar(ax3,summary.snrDb,summary.meanRetxAcrossSeeds, ...
         summary.stdRetxAcrossSeeds,"-o", ...
-        "LineWidth",1.8,"MarkerSize",6);
+        "Color",blue,"MarkerFaceColor","white", ...
+        "LineWidth",1.8,"MarkerSize",5.5,"CapSize",5);
 
     xlabel(ax3,"PDSCH symbol E_s/N_0 (dB)");
     ylabel(ax3,"Mean retransmissions per delivered TB");
     applyReportStyle(ax3);
-    addSNRHighlight(ax3,highlightRange,highlightLabel);
     hold(ax3,"off");
 
     % Figure 4: delivery scheduling delay. Error bars show seed-to-seed std.
@@ -285,12 +289,12 @@ function output = experiment_01_snr(mode, overrides)
 
     errorbar(ax4,summary.snrDb,summary.meanLatencyAcrossSeeds, ...
         summary.stdLatencyAcrossSeeds,"-o", ...
-        "LineWidth",1.8,"MarkerSize",6);
+        "Color",blue,"MarkerFaceColor","white", ...
+        "LineWidth",1.8,"MarkerSize",5.5,"CapSize",5);
 
     xlabel(ax4,"PDSCH symbol E_s/N_0 (dB)");
     ylabel(ax4,"Mean delivery delay (slots)");
     applyReportStyle(ax4);
-    addSNRHighlight(ax4,highlightRange,highlightLabel);
     hold(ax4,"off");
 
     % Export report-ready PNGs at 300 dpi with an explicit white background.
@@ -341,67 +345,17 @@ function applyReportStyle(ax)
 %APPLYREPORTSTYLE Use a simple report-friendly MATLAB figure style.
 
     ax.Color = "white";
-    ax.XColor = "black";
-    ax.YColor = "black";
+    ax.XColor = [0.19 0.22 0.26];
+    ax.YColor = [0.19 0.22 0.26];
     ax.FontName = "Helvetica";
     ax.FontSize = 11;
-    ax.LineWidth = 1.0;
-    ax.Box = "on";
+    ax.LineWidth = 0.9;
+    ax.TickDir = "out";
+    ax.Box = "off";
     ax.XGrid = "on";
     ax.YGrid = "on";
-    ax.GridAlpha = 0.18;
+    ax.GridColor = [0.72 0.76 0.80];
+    ax.GridAlpha = 0.22;
     ax.MinorGridAlpha = 0.10;
     ax.Layer = "top";
 end
-
-function [range,label] = snrHighlightRegion(mode)
-%SNRHIGHLIGHTREGION Return the important SNR region for each experiment mode.
-
-    switch mode
-        case "quick"
-            range = [6.5 7.5];
-            label = "First-transmission transition";
-        case "study"
-            range = [6.5 7.5];
-            label = "First-transmission transition";
-        case "low-snr-pilot"
-            range = [-1 0];
-            label = "HARQ recovery transition";
-        case "low-snr-study"
-            range = [-0.75 0];
-            label = "HARQ recovery transition";
-        otherwise
-            range = [];
-            label = "";
-    end
-end
-
-function addSNRHighlight(ax,range,label)
-%ADDSNRHIGHLIGHT Lightly shade the important SNR region.
-
-    if isempty(range)
-        return;
-    end
-
-    yl = ylim(ax);
-
-    region = patch(ax, ...
-        [range(1) range(2) range(2) range(1)], ...
-        [yl(1) yl(1) yl(2) yl(2)], ...
-        [0.75 0.75 0.75], ...
-        "FaceAlpha",0.16, ...
-        "EdgeColor","none", ...
-        "HandleVisibility","off");
-
-    uistack(region,"bottom");
-
-    text(ax,mean(range),yl(2)-0.04*(yl(2)-yl(1)),label, ...
-        "HorizontalAlignment","center", ...
-        "VerticalAlignment","top", ...
-        "FontSize",9, ...
-        "Color",[0.25 0.25 0.25], ...
-        "HandleVisibility","off");
-
-    ylim(ax,yl);
-end
-
